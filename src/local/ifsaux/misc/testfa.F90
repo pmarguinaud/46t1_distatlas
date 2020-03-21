@@ -1,0 +1,802 @@
+! Jan-2011 P. Marguinaud Interface to thread-safe FA
+! R. El Khatib 30-Mar-2012 2nd argument to FANMSG + changed into S/P
+! P. Marguinaud Nov-2014  Add OP action
+SUBROUTINE TESTFA
+USE FA_MOD, ONLY : NEW_FA_DEFAULT, FA_COM_DEFAULT, FREE_FA, JPNIIL
+USE LFIMOD, ONLY : LFICOM_DEFAULT, FREE_LFI
+INTEGER :: IERR
+
+      WRITE(0,*) ' WARNING !'
+      WRITE(0,*) ' BEFORE RUNNING THIS PROGRAM, MAKE SURE THE MEMORY ', &
+     & 'STACK IS LARGE ENOUGH'
+      WRITE(0,*) ' Otherwise you may end in segmentation fault or ', &
+     & 'memory fault'
+      WRITE(0,*) ' On Linux system, that may be ensured by setting : ', &
+     & ' ulimit -s unlimited'
+      WRITE(0,*) ' '
+      CALL NEW_FA_DEFAULT
+      CALL DOTESTFA
+      CALL FREE_FA (FA_COM_DEFAULT, IERR)
+      CALL FREE_LFI (LFICOM_DEFAULT, IERR)
+
+CONTAINS
+
+SUBROUTINE DOTESTFA
+USE FA_MOD,   ONLY : FA => FA_COM_DEFAULT, JNGEOM, JNEXPL
+USE PARKIND1, ONLY : JPRB
+USE YOMHOOK , ONLY : LHOOK, DR_HOOK
+USE LFI_PRECISION
+!****
+!        Programme *TESTFA* - programme interactif de test
+!     des interfaces de fichier ARPEGE.
+!
+#include "facilo.h"
+!
+!
+! Nombre maximal de valeurs dans un champ ARPEGE traite par testfa
+! C'est soit 2*(nb latitudes)**2, soit (troncature + 1)*(troncature + 2)
+! sachant que nb de latitudes = 1/2 * (2*troncature + 1) pour une
+! grille lineaire et reguliere.
+! (pour Aladin, nb de latitudes = 2*troncature + 1).
+!
+! JPXVAL remplace FA%JPXCHA dans testfa (Avril 2004) pour ne pas demander
+! trop de memoire lors des tests. Cela permet aussi de mesurer
+! correctement l'impact memoire d'un changement de FA%JPXTRO ou FA%JPXLAT.
+!
+      INTEGER JPXVAL
+      PARAMETER ( JPXVAL=2*(8000**2) )
+!
+      INTEGER IREP, INPUT, J, INULOG, INUMER, INIMES, INBARP, INBARI, I1
+      INTEGER INIVAU, INGRIB, INBITS, ISTRON, IPUILA, INUME1, I2, IULOUT
+      INTEGER INUME2, ITYPTR, ITRONC, INLATI, INXLON, INIVER, INPARH, I3
+      INTEGER INOZMX, INPAHE, INIMPL, INGEOM, INALDO, INTROU, INARES
+      INTEGER INAMAX, IXNIVV, IXTRON, IXLATI, IXLONG, INBPDG, INBCSP
+      INTEGER IDMOPL, ILONG, IPOSEX, ILONUT, IMULT, IADD, IOPTIO, INPUT2
+      INTEGER ILNOMA, IDECAL, IAUXIL, IFACTM, IFACMD, IRANGC, IVAL, IOPT
+!
+      INTEGER INLOPA (FA%JPXPAH), INOZPA (FA%JPXIND), IDATEF (FA%JPLDAT)
+      INTEGER ICODPA (8)
+      INTEGER IUNIT
+      INTEGER (KIND=JPLIKB) IVALCO (2+JPXVAL)
+!
+      REAL (KIND=JPDBLR) ZPIS2, ZSLAPO, ZCLOPO, ZSLOPO, ZCODIL, ZPREFE
+      REAL (KIND=JPDBLR) ZCOSLA, ZCOEFF, ZLATIT
+!
+      REAL (KIND=JPDBLR) ZTAB (JPXVAL), ZAHYBR (0:FA%JPXNIV)
+      REAL (KIND=JPDBLR) ZBHYBR (0:FA%JPXNIV)
+      REAL (KIND=JPDBLR) ZSINLA (FA%JPXGEO), ZVALCO (2+JPXVAL)
+!
+      CHARACTER(LEN=128) CLNOMF
+      CHARACTER(LEN=7)   CLSTTU
+      CHARACTER(LEN=4)   CLOPER
+      CHARACTER(LEN=5)   CLCLEF
+      CHARACTER*(FA%JPXNOM) CLNOM1, CLNOM2, CLNOMC, CLPREF,  &
+     &                      CLSUFF, CLIDEN
+!
+      LOGICAL LLNOMM, LLERFA, LLIMST, LLAVAN, LLDEBU, LLRECU, LLCOSP
+      LOGICAL LLGARD, LLTOUT, LLEXIS, LLFRAN, LLOUVR
+!
+      LOGICAL LLMLAM, LLOPT
+!
+      EQUIVALENCE (IVALCO,ZVALCO)
+      CHARACTER(LEN=FA%JPXNOM) CLNOMA
+!
+      REAL (KIND=JPDBLR) ZOP1, ZOP2
+      CHARACTER (LEN=32)  CLOP1, CLOP, CLOP2
+!
+      INTEGER(KIND=JPIM) :: IARGC
+      CHARACTER (LEN=256) :: CLINPUT
+!
+!
+      REAL(KIND=JPRB) :: ZHOOK_HANDLE
+      IF (LHOOK) CALL DR_HOOK('DOTESTFA',0,ZHOOK_HANDLE)
+
+      INPUT=5
+      IF (IARGC () >= 2) THEN
+        CALL GETARG (2, CLINPUT)
+        CLOSE (INPUT) 
+        OPEN (INPUT, FILE=TRIM (CLINPUT))
+      ENDIF
+
+
+      IDATEF = (/ 1990,  2, 15, 12,  0,   1,  0, 24,   1, 0, 0 /)
+
+      ZPIS2=ASIN (1.)
+      IREP=JPNIIL
+      FA%NFIOUV=0
+!
+   10 CONTINUE
+!
+      DO 20 J=1,JPXVAL
+      ZTAB(J)=J
+   20 CONTINUE
+!
+  100 PRINT *,'ACTION ?'
+      READ (UNIT=INPUT,FMT='(A4)',ERR=1000,END=1000) CLOPER
+!
+      IF (CLOPER.EQ.'STOP') THEN
+        PRINT *,                                                         &
+     &  '/// ARRET D''EXECUTION DU PROGRAMME DE TEST PAR ORDRE ''STOP'''
+        GOTO 1000
+!
+      ELSEIF (CLOPER.EQ.'GRTW') THEN
+        PRINT *,'Numero d''unite logique'
+        READ (UNIT=INPUT,FMT=*,END=100) IUNIT
+        CALL FAGRTW (IREP, IUNIT)
+        CLOSE (IUNIT)
+      ELSEIF (CLOPER.EQ.'GRTR') THEN
+        PRINT *,'Numero d''unite logique'
+        READ (UNIT=INPUT,FMT=*,END=100) IUNIT
+        CALL FAGRTR (IREP, IUNIT)
+        CLOSE (IUNIT)
+      ELSEIF (CLOPER.EQ.'OP') THEN
+        PRINT *,'VAL OP VAL'
+        READ (UNIT=INPUT,FMT=*,END=100) CLOP1, CLOP, CLOP2
+        IF (CLOP1 == 'ZTAB') THEN
+          READ (CLOP2, *) ZOP2
+          SELECT CASE (CLOP)
+            CASE ('+')
+              ZTAB = ZTAB + ZOP2
+            CASE ('-')
+              ZTAB = ZTAB - ZOP2
+            CASE ('*')
+              ZTAB = ZTAB * ZOP2
+            CASE ('/')
+              ZTAB = ZTAB / ZOP2
+          END SELECT
+        ELSEIF (CLOP2 == 'ZTAB') THEN
+          READ (CLOP1, *) ZOP1
+          SELECT CASE (CLOP)
+            CASE ('+')
+              ZTAB = ZOP1 + ZTAB
+            CASE ('-')
+              ZTAB = ZOP1 - ZTAB
+            CASE ('*')
+              ZTAB = ZOP1 * ZTAB
+            CASE ('/')
+              ZTAB = ZOP1 / ZTAB
+          END SELECT
+        ENDIF
+      ELSEIF (CLOPER.EQ.'CLOS') THEN
+  101   PRINT *,'Numero d''unite logique ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INULOG
+        IF (INULOG.EQ.INPUT) GOTO 101
+        CLOSE (UNIT=INULOG,IOSTAT=IREP)
+!
+      ELSEIF (CLOPER.EQ.'REWI') THEN
+  102   PRINT *,'Numero d''unite logique ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INULOG
+        IF (INULOG.EQ.INPUT) GOTO 102
+        REWIND (UNIT=INULOG,IOSTAT=IREP)
+!
+      ELSEIF (CLOPER.EQ.'OUV'.OR.CLOPER.EQ.'ITOU') THEN
+        PRINT *,                                                         &
+     &'INUMER, LLNOMM, CLNOMF, CLSTTU, LLERFA, LLIMST, INIMES, INBARP,', &
+     &' CLNOMC ?'
+        READ (UNIT=INPUT,FMT=*,END=100)                               &
+     & INUMER,LLNOMM,CLNOMF,CLSTTU,LLERFA,LLIMST,INIMES,INBARP,CLNOMC
+        CALL FAITOU (IREP,INUMER,LLNOMM,CLNOMF,CLSTTU,LLERFA,LLIMST, &
+     &               INIMES,INBARP,INBARI,CLNOMC)
+!
+      ELSEIF (CLOPER.EQ.'ISAN') THEN
+!
+        PRINT *,'INUMER, CLNOMA, ILONG ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,CLNOMA,ILONG
+        IF (ILONG.GT.JPXVAL) GOTO 800
+        CALL FAISAN (IREP,INUMER,CLNOMA,ZTAB,ILONG)
+!
+      ELSEIF (CLOPER.EQ.'ISAS') THEN
+!
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        IF (ILONG.GT.JPXVAL) GOTO 800
+        CALL FAISAN (IREP,INUMER,CLNOMA(:ILNOMA),ZVALCO,ILONG)
+!
+      ELSEIF (CLOPER.EQ.'UTIF') THEN
+!
+        PRINT *,'INUMER, CLIDEN ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,CLIDEN
+        CALL FAUTIF (IREP,INUMER,CLIDEN)
+!
+      ELSEIF (CLOPER.EQ.'LSIF') THEN
+!
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL FALSIF (IREP,INUMER,CLIDEN)
+        PRINT *,'Identificateur du Fichier = ',CLIDEN
+!
+      ELSEIF (CLOPER.EQ.'NION') THEN
+!
+        PRINT *,'INUMER, CLPREF, INIVAU, CLSUFF ?'
+        READ (UNIT=INPUT,FMT=*,END=100) &
+     &    INUMER,CLPREF,INIVAU,CLSUFF
+        CALL FANION (IREP,INUMER,CLPREF,INIVAU,CLSUFF,LLEXIS,LLCOSP, &
+     &               INGRIB,INBITS,ISTRON,IPUILA)
+        PRINT *,'LLEXIS= ',LLEXIS,', LLCOSP= ',LLCOSP,       &
+     &               ',INGRIB= ',INGRIB,', INBITS= ',INBITS, &
+     & ',ISTRON= ',ISTRON,', IPUILA= ',IPUILA
+!
+      ELSEIF (CLOPER.EQ.'COCH') THEN
+!
+        PRINT *,'INUME1, INUME2, CLPREF, INIVAU, CLSUFF ?'
+        READ (UNIT=INPUT,FMT=*,END=100)      &
+     &    INUME1,INUME2,CLPREF,INIVAU,CLSUFF
+        CALL FACOCH (IREP,INUME1,INUME2,CLPREF,INIVAU,CLSUFF)
+!
+      ELSEIF (CLOPER.EQ.'IENC') THEN
+!
+        PRINT *,'INUMER, CLPREF, INIVAU, CLSUFF, LLCOSP ?'
+        READ (UNIT=INPUT,FMT=*,END=100)      &
+     &    INUMER,CLPREF,INIVAU,CLSUFF,LLCOSP
+        CALL FAIENC (IREP,INUMER,CLPREF,INIVAU,CLSUFF,ZTAB,LLCOSP)
+!
+      ELSEIF (CLOPER.EQ.'TRAN') THEN
+!
+        PRINT *,'INUMER, LLOPT ?'
+        PRINT *,'(si LLOPT=.T., le champ passe du rangt selon modele', &
+     &          ' (vertic.) au rangt selon FA+GRIBversion0)'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, LLOPT
+! On transfere les donnees de ZTAB dans ZVALCO pour pouvoir
+! recuperer le champ transpose dans ZTAB
+        ZVALCO(1:JPXVAL)=ZTAB
+        CALL FATRAN (IREP,INUMER,ZVALCO,ZTAB,LLOPT)
+!
+      ELSEIF (CLOPER.EQ.'RPAR') THEN
+!
+        PRINT *,'CLPREF, CLSUFF, ICODPA(1:6) ?'
+        PRINT *,' Attention, un parametre a la fois!'
+        PRINT *,'            et penser a donner les 6 descripteurs', &
+     &          ' GRIBEX: KSEC1(1,6:9 et 18)'
+        PRINT *,'  soit : version de la tab par.+ indic. parametre'
+        PRINT *,'      + indicateur type de nv + niveau'
+        PRINT *,'      + 2ieme nv si couche + indic. type de champ'
+        READ (UNIT=INPUT,FMT=*,END=100) CLPREF, CLSUFF, ICODPA(1:6)
+        J = 1
+        CALL FARPAR ( IREP, CLPREF, CLSUFF, ICODPA, J )
+        PRINT *,' FARPAR: il est encore possible de definir ',J, &
+     &          ' parametres nouveaux'
+!
+      ELSEIF (CLOPER.EQ.'COND') THEN
+!
+        PRINT *,'INUMER, CLPREF, INIVAU, CLSUFF, LLCOSP ?'
+        READ (UNIT=INPUT,FMT=*,END=100)      &
+     &    INUMER,CLPREF,INIVAU,CLSUFF,LLCOSP
+        CALL FACOND (IREP,INUMER,CLPREF,INIVAU,CLSUFF,ZTAB,LLCOSP, &
+     &               CLNOMA,ILNOMA,ZVALCO,ILONG)
+        PRINT *,'ILNOMA=',ILNOMA,', CLNOMA="',CLNOMA(:ILNOMA),'"', &
+     &          ', ILONG=',ILONG
+!
+        IF (IVALCO(1).EQ.0) THEN
+          PRINT *,'IVALCO(1:2)=',(IVALCO(J),J=1,2)
+        ELSE
+!
+          IF (IVALCO(2).EQ.1) THEN
+            IDECAL=5
+          ELSE
+            IDECAL=3
+          ENDIF
+!
+          PRINT *,'IVALCO(1:',IDECAL,')=',(IVALCO(J),J=1,IDECAL)
+!
+          IF (IVALCO(1).EQ.2) THEN
+            PRINT *,'ZVALCO(',IDECAL+1,':',IDECAL+2,')=', &
+     &              (ZVALCO(IDECAL+J),J=1,2)
+          ENDIF
+!
+        ENDIF
+!
+      ELSEIF (CLOPER.EQ.'LAIS') THEN
+!
+        PRINT *,'INUMER, CLNOMA, ILONG ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,CLNOMA,ILONG
+        IF (ILONG.GT.JPXVAL) GOTO 800
+        CALL FALAIS (IREP,INUMER,CLNOMA,ZTAB,ILONG)
+!
+      ELSEIF (CLOPER.EQ.'LAID') THEN
+!
+        PRINT *,'INUMER, CLNOMA, ILONG ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,CLNOMA,ILONG
+        IF (ILONG.GT.JPXVAL) GOTO 800
+        CALL FALAIS (IREP,INUMER,CLNOMA,ZVALCO,ILONG)
+!
+      ELSEIF (CLOPER.EQ.'CILE') THEN
+!
+        PRINT *,'INUMER, CLPREF, INIVAU, CLSUFF, LLCOSP ?'
+        READ (UNIT=INPUT,FMT=*,END=100)      &
+     &    INUMER,CLPREF,INIVAU,CLSUFF,LLCOSP
+        CALL FACILE (IREP,INUMER,CLPREF,INIVAU,CLSUFF,ZTAB,LLCOSP)
+!
+      ELSEIF (CLOPER.EQ.'CILO') THEN
+!
+        PRINT *,'INUMER, CLPREF, INIVAU, CLSUFF, LLCOSP ?'
+        READ (UNIT=INPUT,FMT=*,END=100)      &
+     &    INUMER,CLPREF,INIVAU,CLSUFF,LLCOSP
+        CALL FACILO (IREP,INUMER,CLPREF,INIVAU,CLSUFF,ZTAB,LLCOSP)
+!
+      ELSEIF (CLOPER.EQ.'DECO') THEN
+!
+!
+        IF (IVALCO(1).EQ.0) THEN
+          PRINT *,'IVALCO(1:2)=',(IVALCO(J),J=1,2)
+        ELSE
+!
+          IF (IVALCO(2).EQ.1) THEN
+            IDECAL=5
+          ELSE
+            IDECAL=3
+          ENDIF
+!
+          PRINT *,'IVALCO(1:',IDECAL,')=',(IVALCO(J),J=1,IDECAL)
+!
+          IF (IVALCO(1).EQ.2) THEN
+            PRINT *,'ZVALCO(',IDECAL+1,':',IDECAL+2,')=', &
+     &              (ZVALCO(IDECAL+J),J=1,2)
+          ENDIF
+!
+        ENDIF
+        PRINT *,'******               ATTENTION                *******'
+        PRINT *,'* IL FAUT AVOIR EXECUTE L''ACTION LAID AU PREALABLE *'
+        PRINT *,'*     (OBTENTION DES VALEURS BRUTES DU CHAMP)       *'
+        PRINT *
+        PRINT *,'INUMER, CLPREF, INIVAU, CLSUFF, LLCOSP ?'
+        READ (UNIT=INPUT,FMT=*,END=100)      &
+     &    INUMER,CLPREF,INIVAU,CLSUFF,LLCOSP
+        CALL FADECO (IREP,INUMER,CLPREF,INIVAU,CLSUFF,LLCOSP,CLNOMA, &
+     &               ILNOMA,ZVALCO,ILONG,ZTAB)
+        PRINT *,'CLNOMA(:',ILNOMA,') = "',CLNOMA(:ILNOMA),'"'
+!
+      ELSEIF (CLOPER.EQ.'CADE') THEN
+!
+        PRINT *,                                                         &
+     &'CLNOMC, ITYPTR, ZSLAPO, ZCLOPO, ZSLOPO, ZCODIL, ITRONC, INLATI,', &
+     &' INXLON, INIVER, LLGARD ?'
+        READ (UNIT=INPUT,FMT=*,END=100)                         &
+     & CLNOMC,ITYPTR,ZSLAPO,ZCLOPO,ZSLOPO,ZCODIL,ITRONC,INLATI, &
+     & INXLON,INIVER,LLGARD
+!
+        IF (ITYPTR .LE. -1) THEN
+           LLMLAM=.TRUE.
+        ELSE
+           LLMLAM=.FALSE.
+        ENDIF
+!
+        INIVAU=MIN (INT (FA%JPXNIV),MAX (1,INIVER))
+        INLATI=MIN (INT (FA%JPXLAT),INLATI)
+        INPARH=(1+INLATI)/2
+        INOZMX=(INXLON-1)/3
+        ZPREFE=1.E+5
+!
+!         On definit en fait une coordonnee sigma.
+!
+        DO 111 J=0,INIVAU
+        ZAHYBR(J)=0.
+        ZBHYBR(J)=REAL (J) / REAL (INIVAU)
+  111   CONTINUE
+!
+        IF (.NOT.LLMLAM) THEN
+
+!       Nombre de points effectivement variable en latitude.
+!
+        ZCOEFF=ZPIS2/REAL (2*(INLATI/2))
+!
+        DO 112 J=1,INPARH
+        ZLATIT=ZCOEFF*REAL (INLATI+1-2*J)
+        ZSINLA(J)=SIN (ZLATIT)
+        ZCOSLA=COS (ZLATIT)
+        IAUXIL=INT ( REAL (INOZMX) * (ZCOSLA+1.E-12) )
+        INOZPA(J)= MAX ( 5, IAUXIL )
+        INLOPA(J)=3*INOZPA(J)+3
+  112   CONTINUE
+!
+        ELSE
+!
+        DO 151 J=1,FA%JPXIND
+           INOZPA(J)=0
+  151   CONTINUE
+!
+        INLOPA(1)=10
+        INLOPA(2)=1
+        INLOPA(3)=1
+        INLOPA(4)=119
+        INLOPA(5)=1
+        INLOPA(6)=119
+        INLOPA(7)=15
+        INLOPA(8)=15
+        DO 153 J=9,FA%JPXPAH
+           INLOPA(J)=0
+  153   CONTINUE
+!
+        ZSINLA(1)=0.
+        ZSINLA(2)=0.
+        ZSINLA(3)=0.
+        ZSINLA(4)=-.18
+        ZSINLA(5)=.4238
+        ZSINLA(6)=.769
+        ZSINLA(7)=1.034
+        ZSINLA(8)=.17453
+        ZSINLA(9)=1.047
+        ZSINLA(10)=1.
+        ZSINLA(11)=1.
+        ZSINLA(13)=5448300.
+        ZSINLA(14)=5448300.
+        ZSINLA(15)=38100.
+        ZSINLA(16)=38100.
+        ZSINLA(17)=0.1153238E-05
+        ZSINLA(18)=0.1153238E-05
+        DO 155 J=13,FA%JPXGEO
+           ZSINLA(J)=0.
+  155   CONTINUE
+!
+        ENDIF
+!
+        CALL FACADE (CLNOMC,ITYPTR,ZSLAPO,ZCLOPO,ZSLOPO,ZCODIL,ITRONC, &
+     &               INLATI,INXLON,INLOPA,INOZPA,ZSINLA,INIVER,ZPREFE, &
+     &               ZAHYBR,ZBHYBR,LLGARD)
+!
+      ELSEIF (CLOPER.EQ.'CIES') THEN
+!
+        PRINT *,'CLNOMC ?'
+        READ (UNIT=INPUT,FMT=*,END=100) CLNOMC
+        CALL FACIES (CLNOMC,ITYPTR,ZSLAPO,ZCLOPO,ZSLOPO,ZCODIL,ITRONC, &
+     &               INLATI,INXLON,INLOPA,INOZPA,ZSINLA,INIVER,ZPREFE, &
+     &               ZAHYBR,ZBHYBR,LLGARD)
+!
+        IF (ITYPTR .LE. -1) THEN
+           LLMLAM=.TRUE.
+        ELSE
+           LLMLAM=.FALSE.
+        ENDIF
+!
+        IF (.NOT.LLMLAM) THEN
+           INPAHE=(1+INLATI)/2
+           INIMPL=INPAHE
+           INGEOM=INPAHE
+        ELSE
+           INPAHE=JNEXPL
+           INGEOM=JNGEOM
+           INIMPL=2*INOZPA(1)+4
+        ENDIF
+!
+        PRINT *,'ITYPTR= ',ITYPTR,', ZSLAPO= ',ZSLAPO,', ZCLOPO= ', &
+     &  ZCLOPO,', ZSLOPO= ',ZSLOPO,', ZCODIL= ',ZCODIL
+        PRINT *,', ITRONC= ',ITRONC,', INLATI= ',INLATI,', INXLON= &
+     & ',INXLON,', LLGARD= ',LLGARD
+        PRINT *,'INLOPA= ',(INLOPA(J),J=1,INPAHE)
+        PRINT *,'INOZPA= ',(INOZPA(J),J=1,INIMPL)
+        PRINT *,'ZSINLA= ',(ZSINLA(J),J=1,INGEOM)
+        PRINT *,'ZAHYBR= ',(ZAHYBR(J),J=0,INIVER)
+        PRINT *,'ZBHYBR= ',(ZBHYBR(J),J=0,INIVER)
+        CALL FANUCA (CLNOMC,IRANGC,.TRUE.)
+        PRINT *,'IRANGC= ',IRANGC
+!
+      ELSEIF (CLOPER.EQ.'CTUM') THEN
+!
+        PRINT *,'CLNOMC ?'
+        READ (UNIT=INPUT,FMT=*,END=100) CLNOMC
+        CALL FACTUM (CLNOMC)
+!
+      ELSEIF (CLOPER.EQ.'CAGE') THEN
+!
+        PRINT *,'CLNOMC, LLGARD ?'
+        READ (UNIT=INPUT,FMT=*,END=100) CLNOMC,LLGARD
+        CALL FACAGE (CLNOMC,LLGARD)
+!
+      ELSEIF (CLOPER.EQ.'AFM') THEN
+        PRINT *,'INUMER, IFACTM ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,IFACTM
+        CALL LFIAFM (IREP,INUMER,IFACTM)
+!
+      ELSEIF (CLOPER.EQ.'SFM') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFISFM (IREP,INUMER)
+!
+      ELSEIF (CLOPER.EQ.'FMD') THEN
+        PRINT *,'IFACMD ?'
+        READ (UNIT=INPUT,FMT=*,END=100) IFACMD
+        CALL LFIFMD (IFACMD)
+!
+      ELSEIF (CLOPER.EQ.'FRA') THEN
+        PRINT *,'LLFRAN ?'
+        READ (UNIT=INPUT,FMT=*,END=100) LLFRAN
+        CALL LFIFRA (LLFRAN)
+!
+      ELSEIF (CLOPER.EQ.'OEF') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFIOEF (IREP,INUMER,LLERFA)
+        PRINT *,'LLERFA= ',LLERFA
+!
+      ELSEIF (CLOPER.EQ.'OMF') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFIOMF (IREP,INUMER,INIMES)
+        PRINT *,'INIMES= ',INIMES
+!
+      ELSEIF (CLOPER.EQ.'OSF') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFIOSF (IREP,INUMER,LLIMST)
+        PRINT *,'LLIMST= ',LLIMST
+!
+      ELSEIF (CLOPER.EQ.'OEF') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFIOEF (IREP,INUMER,LLERFA)
+        PRINT *,'LLERFA= ',LLERFA
+!
+      ELSEIF (CLOPER.EQ.'OEG') THEN
+        CALL LFIOEG (INIVAU)
+        PRINT *,'INIVAU= ',INIVAU
+!
+      ELSEIF (CLOPER.EQ.'OMG') THEN
+        CALL LFIOMG (INIVAU)
+        PRINT *,'INIVAU= ',INIVAU
+!
+      ELSEIF (CLOPER.EQ.'OSG') THEN
+        CALL LFIOSG (INIVAU)
+        PRINT *,'INIVAU= ',INIVAU
+!
+      ELSEIF (CLOPER.EQ.'CFG') THEN
+        CALL LFICFG
+!
+      ELSEIF (CLOPER.EQ.'OFM') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFIOFM (IREP,INUMER,IFACTM,LLOUVR)
+        PRINT *,'IFACTM= ',IFACTM,', LLOUVR= ',LLOUVR
+!
+      ELSEIF (CLOPER.EQ.'OFD') THEN
+        CALL LFIOFD (IFACMD)
+        PRINT *,'IFACMD= ',IFACMD
+!
+      ELSEIF (CLOPER.EQ.'NAF') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFINAF (IREP,INUMER,INALDO,INTROU,INARES,INAMAX)
+        PRINT *,'INALDO = ',INALDO,', INTROU = ',INTROU, &
+     & ', INARES = ',INARES,', INAMAX = ',INAMAX
+!
+      ELSEIF (CLOPER.EQ.'NDAR') THEN
+!
+        PRINT *,'INUMER, IDATEF ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, IDATEF
+        CALL FANDAR (IREP,INUMER,IDATEF)
+!
+      ELSEIF (CLOPER.EQ.'RFLU') THEN
+!
+        PRINT *,                          &
+     & 'IXNIVV, IXTRON, IXLATI, IXLONG ?'
+        READ (UNIT=INPUT,FMT=*,END=100) &
+     &  IXNIVV, IXTRON, IXLATI, IXLONG
+        CALL FARFLU (IXNIVV,IXTRON,IXLATI,IXLONG)
+!
+      ELSEIF (CLOPER.EQ.'LIMU') THEN
+!
+        CALL FALIMU (IXNIVV,IXTRON,IXLATI,IXLONG)
+        PRINT *,'IXNIVV = ',IXNIVV,', IXTRON = ',IXTRON, &
+     & ', IXLATI = ',IXLATI,', IXLONG = ',IXLONG
+!
+      ELSEIF (CLOPER.EQ.'GOTE') THEN
+!
+        PRINT *,                                                  &
+     & 'INUMER, INGRIB, INBPDG, INBCSP, ISTRON, IPUILA, IDMOPL ?'
+        READ (UNIT=INPUT,FMT=*,END=100)                        &
+     &  INUMER, INGRIB, INBPDG, INBCSP, ISTRON, IPUILA, IDMOPL
+        CALL FAGOTE (IREP,INUMER,INGRIB,INBPDG,INBCSP,ISTRON,IPUILA, &
+     &               IDMOPL)
+!
+      ELSEIF (CLOPER.EQ.'VEUR') THEN
+!
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL FAVEUR (IREP,INUMER,INGRIB,INBPDG,INBCSP,ISTRON,IPUILA, &
+     &               IDMOPL)
+        PRINT *,'INGRIB = ',INGRIB,', INBPDG = ',INBPDG, &
+     & ', INBCSP = ',INBCSP,', ISTRON = ',ISTRON,        &
+     & ', IDMOPL = ',IDMOPL
+!
+      ELSEIF (CLOPER.EQ.'GIOT') THEN
+!
+        PRINT *,                                          &
+     & 'INGRIB, INBPDG, INBCSP, ISTRON, IPUILA, IDMOPL ?'
+        READ (UNIT=INPUT,FMT=*,END=100)                &
+     &  INGRIB, INBPDG, INBCSP, ISTRON, IPUILA, IDMOPL
+        CALL FAGIOT (INGRIB,INBPDG,INBCSP,ISTRON,IPUILA,IDMOPL)
+!
+      ELSEIF (CLOPER.EQ.'VORI') THEN
+!
+        CALL FAVORI (INGRIB,INBPDG,INBCSP,ISTRON,IPUILA,IDMOPL)
+        PRINT *,'INGRIB = ',INGRIB,', INBPDG = ',INBPDG,', INBCSP = ', &
+     &          INBCSP,', ISTRON = ',ISTRON,', IDMOPL = ',IDMOPL
+!
+      ELSEIF (CLOPER.EQ.'REGU') THEN
+!
+        PRINT *, 'INUMER, CLCLEF, IVAL, IOPT ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, CLCLEF, IVAL, IOPT
+        CALL FAREGU (INUMER, CLCLEF, IVAL, IOPT)
+        IF (IOPT.EQ.0) PRINT *,'INUMER = ',INUMER,' CLCLEF = ', &
+     &                         CLCLEF,' IVAL = ',IVAL
+!
+      ELSEIF (CLOPER.EQ.'REGI') THEN
+!
+        PRINT *, 'CLCLEF, IVAL, IOPT ?'
+        READ (UNIT=INPUT,FMT=*,END=100) CLCLEF, IVAL, IOPT
+        CALL FAREGI ( CLCLEF, IVAL, IOPT)
+        IF (IOPT.EQ.0) PRINT *,' CLCLEF = ',CLCLEF,' IVAL = ',IVAL
+!
+      ELSEIF (CLOPER.EQ.'DIES') THEN
+!
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL FADIES (IREP,INUMER,IDATEF)
+        PRINT *,' IDATEF= ', IDATEF
+!
+      ELSEIF (CLOPER.EQ.'LAP') THEN
+        PRINT *,'INUMER, ILONG ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, ILONG
+        IF (ILONG.GT.JPXVAL) GOTO 800
+        CALL LFILAP (IREP,INUMER,CLNOMA,ZTAB,ILONG)
+        PRINT *,'CLNOMA = "',CLNOMA,'"'
+!
+      ELSEIF (CLOPER.EQ.'LAS') THEN
+        PRINT *,'INUMER, ILONG ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, ILONG
+        IF (ILONG.GT.JPXVAL) GOTO 800
+        CALL LFILAS (IREP,INUMER,CLNOMA,ZTAB,ILONG)
+        PRINT *,'CLNOMA = "',CLNOMA,'"'
+!
+      ELSEIF (CLOPER.EQ.'CAP') THEN
+        PRINT *,'INUMER, LLRECU ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, LLRECU
+        CALL LFICAP (IREP,INUMER,CLNOMA,ILONG,IPOSEX,LLRECU)
+        PRINT *,'CLNOMA = "',CLNOMA,'", ILONG = ',ILONG, &
+     & ', IPOSEX = ',IPOSEX
+!
+      ELSEIF (CLOPER.EQ.'CAS') THEN
+        PRINT *,'INUMER, LLAVAN ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, LLAVAN
+        CALL LFICAS (IREP,INUMER,CLNOMA,ILONG,IPOSEX,LLAVAN)
+        PRINT *,'CLNOMA = "',CLNOMA,'", ILONG = ',ILONG, &
+     & ', IPOSEX = ',IPOSEX
+!
+      ELSEIF (CLOPER.EQ.'NFO') THEN
+        PRINT *,'INUMER, CLNOMA ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, CLNOMA
+        CALL LFINFO (IREP,INUMER,CLNOMA,ILONG,IPOSEX)
+        PRINT *,'ILONG = ',ILONG,', IPOSEX = ',IPOSEX
+!
+      ELSEIF (CLOPER.EQ.'LAF') THEN
+        PRINT *,'INUMER, LLTOUT ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,LLTOUT
+        CALL LFILAF (IREP,INUMER,LLTOUT)
+!
+      ELSEIF (CLOPER.EQ.'REN') THEN
+        PRINT *,'INUMER, CLNOM1, CLNOM2 ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, CLNOM1,CLNOM2
+        CALL LFIREN (IREP,INUMER,CLNOM1,CLNOM2)
+!
+      ELSEIF (CLOPER.EQ.'SUP') THEN
+        PRINT *,'INUMER, CLNOMA ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, CLNOMA
+        CALL LFISUP (IREP,INUMER,CLNOMA,ILONUT)
+        PRINT *,'ILONUT = ',ILONUT
+!
+      ELSEIF (CLOPER.EQ.'POS') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFIPOS (IREP,INUMER)
+      ELSEIF (CLOPER.EQ.'PRI') THEN
+        PRINT *,'I1, I2, I3 ?'
+        READ (UNIT=INPUT,FMT=*,END=100) I1, I2, I3
+        I1=MAX (1, MIN (JPXVAL,I1))
+        I2=MAX (1, MIN (JPXVAL,I2))
+        WRITE (*, '(4(" ",E23.16))') (ZTAB(J),J=I1,I2,I3)
+      ELSEIF (CLOPER.EQ.'INIT') THEN
+        GOTO 10
+!
+      ELSEIF (CLOPER.EQ.'RAZ') THEN
+!
+        DO 201 J=1,JPXVAL
+        ZTAB(J)=0
+  201   CONTINUE
+!
+      ELSEIF (CLOPER.EQ.'TAB') THEN
+        PRINT *,'IMULT, IADD, I1, I2, I3 ?'
+        READ (UNIT=INPUT,FMT=*,END=100) IMULT,IADD,I1,I2,I3
+        I1=MAX (1, MIN (JPXVAL,I1))
+        I2=MAX (1, MIN (JPXVAL,I2))
+!
+        DO 202 J=I1,I2,I3
+        ZTAB(J)=IMULT*J+IADD
+  202   CONTINUE
+!
+      ELSEIF (CLOPER.EQ.'FER'.OR.CLOPER.EQ.'IRME') THEN
+        PRINT *,'INUMER, CLSTTU ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER, CLSTTU
+        CALL FAIRME (IREP,INUMER,CLSTTU)
+      ELSEIF (CLOPER.EQ.'STA') THEN
+        PRINT *,'INUMER ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER
+        CALL LFISTA (IREP,INUMER)
+      ELSEIF (CLOPER.EQ.'INI'.OR.CLOPER.EQ.'RINE') THEN
+        PRINT *,'IOPTIO ?'
+        READ (UNIT=INPUT,FMT=*,END=100) IOPTIO
+        CALL FARINE (IOPTIO)
+      ELSEIF (CLOPER.EQ.'NSG') THEN
+        PRINT *,'INIVAU ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INIVAU
+        CALL LFINSG (INIVAU)
+      ELSEIF (CLOPER.EQ.'NEG') THEN
+        PRINT *,'INIVAU ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INIVAU
+        CALL LFINEG (INIVAU)
+      ELSEIF (CLOPER.EQ.'NMSG') THEN
+        PRINT *,'INIVAU, NULOUT ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INIVAU,IULOUT
+        CALL FANMSG (INIVAU,IULOUT)
+      ELSEIF (CLOPER.EQ.'NERG') THEN
+        PRINT *,'INIVAU ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INIVAU
+        CALL FANERG (INIVAU)
+      ELSEIF (CLOPER.EQ.'NMG') THEN
+        PRINT *,'INIVAU, NULOUT ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INIVAU,IULOUT
+        CALL LFINMG (INIVAU,IULOUT)
+      ELSEIF (CLOPER.EQ.'MISO') THEN
+        PRINT *,'LLDEBU ?'
+        READ (UNIT=INPUT,FMT=*,END=100) LLDEBU
+        CALL FAMISO (LLDEBU)
+      ELSEIF (CLOPER.EQ.'DEB') THEN
+        PRINT *,'LLDEBU ?'
+        READ (UNIT=INPUT,FMT=*,END=100) LLDEBU
+        CALL LFIDEB (LLDEBU)
+      ELSEIF (CLOPER.EQ.'MST') THEN
+        PRINT *,'INUMER, LLIMST ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,LLIMST
+        CALL LFIMST (IREP,INUMER,LLIMST)
+      ELSEIF (CLOPER.EQ.'TALE') THEN
+        PRINT *,'INUMER, LLERFA ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,LLERFA
+        CALL FATALE (IREP,INUMER,LLERFA)
+      ELSEIF (CLOPER.EQ.'ERF') THEN
+        PRINT *,'INUMER, LLERFA ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,LLERFA
+        CALL LFIERF (IREP,INUMER,LLERFA)
+      ELSEIF (CLOPER.EQ.'NIME') THEN
+        PRINT *,'INUMER, INIVAU ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,INIVAU
+        CALL FANIME (IREP,INUMER,INIVAU)
+      ELSEIF (CLOPER.EQ.'NIM') THEN
+        PRINT *,'INUMER, INIMES ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INUMER,INIMES
+        CALL LFINIM (IREP,INUMER,INIMES)
+      ELSEIF (CLOPER.EQ.'CHU') THEN
+        PRINT *,'NOUVELLE UNITE LOGIQUE D''INPUT ?'
+        READ (UNIT=INPUT,FMT=*,END=100) INPUT2
+        INPUT=INPUT2
+      ELSEIF (CLOPER.EQ.'FIN'.OR.CLOPER.EQ.'END') THEN
+        GOTO 1000
+      ELSE
+        PRINT *,'ACTION NON PREVUE'
+      ENDIF
+!
+      IF (CLOPER.NE.'INI'.AND.CLOPER.NE.'NSG'.AND.CLOPER.NE.'NEG' &
+     &    .AND.CLOPER.NE.'NMG') PRINT *,'IREP = ',IREP
+      PRINT *,'FA%NFIOUV = ',FA%NFIOUV,' FA%NULOGI = ', &
+     &         (FA%FICHIER(FA%NULIND(J))%NULOGI,J=1,FA%NFIOUV)
+      GOTO 100
+!
+  800 CONTINUE
+      PRINT *,                                                      &
+     & 'Longueur d''article trop grande - maximum du programme = ', &
+     &            JPXVAL
+      GOTO 100
+!
+ 1000 CONTINUE
+!
+      IF (LHOOK) CALL DR_HOOK('DOTESTFA',1,ZHOOK_HANDLE)
+
+END SUBROUTINE DOTESTFA
+
+END SUBROUTINE TESTFA

@@ -89,6 +89,10 @@ EOF
 
 ln -sf $PWD/stdeo.0 $PACK/stdeo.0
 
+for i in 0 1 2 3
+do
+  grep GREP stdeo.$i > $PACK/stdeo.GREP.AAPGD.$i
+done
 
 
 (

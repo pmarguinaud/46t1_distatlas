@@ -13,6 +13,16 @@
 #include "atlas/util/CoordinateEnums.h" //to have LON LAT
 #include "atlas/interpolation.h"
 
+#include <iostream>
+#include <fstream>
+#include <algorithm>
+#include <vector>
+#include <map>
+#include <string>  
+
+#include <sys/time.h>
+#include <stdio.h>
+
 
 int partition2[] = 
 {
@@ -104,16 +114,6 @@ int partition2[] =
   4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 
 };
 
-#include <iostream>
-#include <fstream>
-#include <algorithm>
-#include <vector>
-#include <map>
-#include <string>  
-
-#include <sys/time.h>
-#include <stdio.h>
-
 using namespace atlas;
 using namespace atlas::grid;
 using namespace atlas::mesh;
@@ -121,6 +121,118 @@ using namespace atlas::util;
 using namespace atlas::array;
 using namespace atlas::meshgenerator;
 using namespace atlas::output;
+
+
+template <typename T>
+T modulo (T a, T b)
+{
+  a = a - int (a / b) * b;
+  return a >= 0 ? a : a + b;
+}
+
+void create_shuffle4 (const StructuredGrid & grid1, 
+                      const StructuredGrid & grid2,
+                      const grid::Distribution & dist1, 
+                      const grid::Distribution & dist2,
+                      const functionspace::StructuredColumns & fs1,
+                      const functionspace::StructuredColumns & fs2)
+{
+  const int ISW = -3, ISE = -2, INW = -1, INE = -0;
+  atlas::vector<int> iglo1all (4 * fs2.sizeOwned ());
+
+  const auto & proj1 = grid1.projection ();
+  const auto & xspc1 = grid1.xspace ();
+  const auto & yspc1 = grid1.yspace ();
+
+  for (int i = 0; i < yspc1.size (); i++)
+    printf (" %8d > %12.4f\n", i, yspc1[i]);
+
+  for (int i = 0; i < xspc1.ny (); i++)
+    printf (" %8d > %8d %12.4f .. %12.4f %12.4f\n", i, xspc1.nx ()[i], 
+            xspc1.xmin ()[i], xspc1.xmax ()[i], xspc1.nx ()[i] * xspc1.dx ()[i]);
+
+  auto i2 = array::make_view<int,1> (fs2.index_i ());
+  auto j2 = array::make_view<int,1> (fs2.index_j ());
+
+  for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
+    {
+      PointLonLat lonlat2 = grid2.StructuredGrid::lonlat (i2 (jloc2)-1, j2 (jloc2)-1);
+      PointXY xy1 = proj1.xy (lonlat2);
+
+      int iny1 = grid1.ny (), iy1a, iy1b;
+
+// TODO : increasing Y coordinate
+      if (xy1.y () > yspc1.front ())
+        iy1a = -1;
+      else if (xy1.y () < yspc1.back ())
+        iy1a = iny1-1;
+      else
+        {
+          iy1a = 0;
+          iy1b = iny1-1;
+          while (1)
+            {
+              // Dichotomy
+              int iy1m = (iy1a + iy1b) / 2;
+              if ((yspc1[iy1a] >= xy1.y ()) && (xy1.y () >= yspc1[iy1m]))
+                iy1b = iy1m;
+              else
+                iy1a = iy1m;
+              if (abs (iy1b - iy1a) <= 1)
+                break;
+            }
+        }
+       
+      iy1b = iy1a + 1;
+
+
+      printf (" GREP = %8d%8d\n", jloc2+1, iy1a+1);
+
+      int ix1a, ix1b;
+
+
+      if (iy1a > -1)
+        {
+// TODO : handle non global domains (grid1.domain.global () == false)
+// TODO : handle shifted longitudes ??
+          int inx1 = xspc1.nx ()[iy1a];
+          double dx = inx1 * xspc1.dx ()[iy1a];
+          int ix1a = modulo (int (inx1 * xy1.x () / dx), inx1);
+          int ix1b = modulo (ix1a + 1, inx1);
+          iglo1all[4 * (jloc2 + 1) + ISW - 1] = grid1.ij2gidx (ix1a, iy1a);
+          iglo1all[4 * (jloc2 + 1) + ISE - 1] = grid1.ij2gidx (ix1b, iy1a);
+        }
+      else
+        {
+          iglo1all[4 * (jloc2 + 1) + ISW - 1] = -1;
+          iglo1all[4 * (jloc2 + 1) + ISE - 1] = -1;
+        }
+      
+      if (iy1b < iny1)
+        {
+          int inx1 = xspc1.nx ()[iy1b];
+          double dx = inx1 * xspc1.dx ()[iy1b];
+          int ix1a = modulo (int (inx1 * xy1.x () / dx), inx1);
+          int ix1b = modulo (ix1a + 1, inx1);
+          iglo1all[4 * (jloc2 + 1) + INW - 1] = grid1.ij2gidx (ix1a, iy1b);
+          iglo1all[4 * (jloc2 + 1) + INE - 1] = grid1.ij2gidx (ix1b, iy1b);
+        }
+      else
+        {
+          iglo1all[4 * (jloc2 + 1) + INW - 1] = 0;
+          iglo1all[4 * (jloc2 + 1) + INE - 1] = 0;
+        }
+
+
+
+    }
+
+
+
+
+
+}
+
 
 int main (int argc, char * argv[]) 
 {
@@ -192,6 +304,7 @@ if(0){
   Field y1 = fs1.createField<double> (option::name ("y"));
   Field z1 = fs1.createField<double> (option::name ("z"));
 
+  // Create xyz fields
   {
     auto vx1 = array::make_view<double,1> (x1);
     auto vy1 = array::make_view<double,1> (y1);
@@ -207,12 +320,14 @@ if(0){
         double coslat = cos (deg2rad * lonlat[0]), sinlat = sin (deg2rad * lonlat[0]);
         double x = coslon * coslat, y = sinlon * coslat, z = sinlat;
         vx1 (k) = x; vy1 (k) = y; vz1 (k) = z;
-        printf (" %8d, %8d > %8d > %12.4f, %12.4f\n", i1 (k)-1, j1 (k)-1, gidx, lonlat[1], lonlat[0]);
+//      printf (" %8d, %8d > %8d > %12.4f, %12.4f\n", i1 (k)-1, j1 (k)-1, gidx, lonlat[1], lonlat[0]);
       }
 
   }
   
+  functionspace::StructuredColumns fs2 {grid2, dist2};
 
+  create_shuffle4 (grid1, grid2, dist1, dist2, fs1, fs2);
 
 
 #ifdef UNDEF

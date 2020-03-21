@@ -38,3 +38,9 @@ let "NP=$NN*$NNP"
   --prefix-mpirun "/usr/bin/time -f 'real=%e'" \
   --verbose -nn $NN -nnp $NNP -openmp 10 -- $PACK/bin/TESTPHI
 
+ln -sf $PWD/stdeo.0 $PACK/stdeo.0.TESTPHI
+
+for i in 0 1 2 3
+do
+  grep GREP stdeo.$i > $PACK/stdeo.GREP.TESTPHI.$i
+done

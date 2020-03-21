@@ -28,3 +28,4 @@ src/unsxref
 *.lst
 attic
 stdeo.*
+*.eo

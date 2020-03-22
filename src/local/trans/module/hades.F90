@@ -1046,7 +1046,7 @@ BLOCK
 
     JLAT1B = JLAT1A + 1
 
-    WRITE (*, '(" GREP = ",I8, I8)') JLOC2, JLAT1A
+!   WRITE (*, '(" GREP = ",I8, I8)') JLOC2, JLAT1A
 
     IF (JLAT1B > INLAT1+1) THEN
       PRINT *, " JLOC2 = ", JLOC2
@@ -1087,7 +1087,7 @@ BLOCK
       IGLO1ALL_A (4*JLOC2+INE) = 0
     ENDIF
 
-IF (LLDBG) WRITE (0, *) __FILE__, ':', __LINE__, " IGLO1ALL_A = ", IGLO1ALL_A (4*(JLOC2-1)+1:4*(JLOC2-1)+4)
+WRITE (0, '(" GREP ",I8," > ",4I8)') JLOC2, IGLO1ALL_A (4*(JLOC2-1)+1:4*(JLOC2-1)+4)
     
   ENDBLOCK
   ENDDO

@@ -186,7 +186,7 @@ void create_shuffle4 (const StructuredGrid & grid1,
       iy1b = iy1a + 1;
 
 
-      printf (" GREP = %8d%8d\n", jloc2+1, iy1a+1);
+//    printf (" GREP = %8d%8d\n", jloc2+1, iy1a+1);
 
       int ix1a, ix1b;
 
@@ -222,6 +222,11 @@ void create_shuffle4 (const StructuredGrid & grid1,
           iglo1all[4 * (jloc2 + 1) + INW - 1] = 0;
           iglo1all[4 * (jloc2 + 1) + INE - 1] = 0;
         }
+
+
+printf (" GREP %8d > %8d%8d%8d%8d\n", jloc2 + 1,
+        iglo1all[4*jloc2+0] + 1, iglo1all[4*jloc2+1] + 1,
+        iglo1all[4*jloc2+2] + 1, iglo1all[4*jloc2+3] + 1);
 
 
 

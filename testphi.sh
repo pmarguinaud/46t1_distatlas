@@ -33,10 +33,12 @@ cd $TMPDIR
 NNP=4
 let "NP=$NN*$NNP"
 
+set +e
 /opt/softs/mpiauto/mpiauto \
   --wrap --wrap-stdeo-pack --wrap-stdeo  \
   --prefix-mpirun "/usr/bin/time -f 'real=%e'" \
   --verbose -nn $NN -nnp $NNP -openmp 10 -- $PACK/bin/TESTPHI
+set -e
 
 ln -sf $PWD/stdeo.0 $PACK/stdeo.0.TESTPHI
 

@@ -10,7 +10,7 @@
 #include "atlas/output/Gmsh.h"
 #include "atlas/runtime/Trace.h"
 
-#include "atlas/util/CoordinateEnums.h" //to have LON LAT
+#include "atlas/util/CoordinateEnums.h" 
 #include "atlas/interpolation.h"
 
 #include <iostream>
@@ -221,9 +221,6 @@ create_shuffle4 (const StructuredGrid & grid1,
   shuffle4.size2 = fs2.sizeOwned ();
   shuffle4.fs1   = fs1;
   shuffle4.fs2   = fs2;
-
-  
-
 
   auto & comm = atlas::mpi::comm ();
 
@@ -544,11 +541,6 @@ do_shuffle4 (const shuffle4_t & shuffle4, const FieldSet & pgp1)
      zbufr (shuffle4.isize_recv * infld),
      zbufs (shuffle4.isize_send * infld);
 
-if(0){
-  printf (" isize_recv = %d\n", shuffle4.isize_recv * infld);
-  printf (" isize_send = %d\n", shuffle4.isize_send * infld);
-}
-
   auto & comm = atlas::mpi::comm ();
 
   int myproc = comm.rank (), nproc = comm.size ();
@@ -577,16 +569,9 @@ if(0){
   // Post receives
 
   for (int i = 0; i < shuffle4.yl_recv.size (); i++)
-    {
     reqrecv[i] = comm.iReceive (&zbufr[infld*shuffle4.yl_recv[i].ioff], 
                                 shuffle4.yl_recv[i].icnt * infld,
                                 shuffle4.yl_recv[i].iprc, 101);
-  if(0)
-  printf (" RECV %8d .. %8d (%8d) FROM %8d\n", infld*shuffle4.yl_recv[i].ioff, 
-        infld*shuffle4.yl_recv[i].ioff + shuffle4.yl_recv[i].icnt * infld, 
-        shuffle4.yl_recv[i].icnt * infld, shuffle4.yl_recv[i].iprc);
-
-    }
 
   comm.barrier ();
 
@@ -608,11 +593,6 @@ if (k >= pgp1[jfld].size ()) abort ();
         }
       reqsend[i] = comm.iSend (&zbufs[infld*ioff], icnt * infld,
                                shuffle4.yl_send[i].iprc, 101);
-
-  if(0)
-  printf (" SEND %8d .. %8d (%8d)  TO  %8d\n", infld*ioff, infld*ioff + icnt * infld, 
-        icnt * infld, shuffle4.yl_send[i].iprc);
-
     }
 
   // Create fields in pgp2

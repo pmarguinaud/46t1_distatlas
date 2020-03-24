@@ -26,6 +26,7 @@
 #include <stdio.h>
 
 const double deg2rad = M_PI / 180.0;
+const double rad2deg = 180.0 / M_PI;
 
 int partition2[] = 
 {
@@ -139,8 +140,8 @@ T modulo (T a, T b)
 template <typename T, typename I>
 T reorder (const T & vec, const I & ord)
 {
-  T v (vec.size ());
-  for (typename I::value_type i = 0; i < vec.size (); i++)
+  T v (ord.size ());
+  for (typename I::value_type i = 0; i < ord.size (); i++)
     v[i] = vec[ord[i]];
   return v;
 }
@@ -282,14 +283,14 @@ create_shuffle4 (const StructuredGrid & grid1,
           double dx = inx1 * xspc1.dx ()[iy1a];
           int ix1a = modulo (int (inx1 * xy1.x () / dx), inx1);
           int ix1b = modulo (ix1a + 1, inx1);
-          iglo1all[4 * (jloc2 + 1) + shuffle4_t::ISW - 1] = grid1.ij2gidx (ix1a, iy1a);
-          iglo1all[4 * (jloc2 + 1) + shuffle4_t::ISE - 1] = grid1.ij2gidx (ix1b, iy1a);
+          iglo1all[4 * (jloc2 + 1) + shuffle4_t::INW - 1] = grid1.ij2gidx (ix1a, iy1a);
+          iglo1all[4 * (jloc2 + 1) + shuffle4_t::INE - 1] = grid1.ij2gidx (ix1b, iy1a);
         }
       else
         {
           // No points were found
-          iglo1all[4 * (jloc2 + 1) + shuffle4_t::ISW - 1] = -1;
-          iglo1all[4 * (jloc2 + 1) + shuffle4_t::ISE - 1] = -1;
+          iglo1all[4 * (jloc2 + 1) + shuffle4_t::INW - 1] = -1;
+          iglo1all[4 * (jloc2 + 1) + shuffle4_t::INE - 1] = -1;
         }
       
       if (iy1b < iny1)
@@ -298,14 +299,14 @@ create_shuffle4 (const StructuredGrid & grid1,
           double dx = inx1 * xspc1.dx ()[iy1b];
           int ix1a = modulo (int (inx1 * xy1.x () / dx), inx1);
           int ix1b = modulo (ix1a + 1, inx1);
-          iglo1all[4 * (jloc2 + 1) + shuffle4_t::INW - 1] = grid1.ij2gidx (ix1a, iy1b);
-          iglo1all[4 * (jloc2 + 1) + shuffle4_t::INE - 1] = grid1.ij2gidx (ix1b, iy1b);
+          iglo1all[4 * (jloc2 + 1) + shuffle4_t::ISW - 1] = grid1.ij2gidx (ix1a, iy1b);
+          iglo1all[4 * (jloc2 + 1) + shuffle4_t::ISE - 1] = grid1.ij2gidx (ix1b, iy1b);
         }
       else
         {
           // No points were found
-          iglo1all[4 * (jloc2 + 1) + shuffle4_t::INW - 1] = 0;
-          iglo1all[4 * (jloc2 + 1) + shuffle4_t::INE - 1] = 0;
+          iglo1all[4 * (jloc2 + 1) + shuffle4_t::ISW - 1] = -1;
+          iglo1all[4 * (jloc2 + 1) + shuffle4_t::ISE - 1] = -1;
         }
 
     }
@@ -492,7 +493,6 @@ create_shuffle4 (const StructuredGrid & grid1,
           gidx_t jglo = shuffle4.yl_send[i].iglo[j];
           idx_t jloc;
 
-
           if (jglo < 0)
             {
               jloc = -1;
@@ -501,9 +501,8 @@ create_shuffle4 (const StructuredGrid & grid1,
             {
               idx_t ij[2];
 
-              jloc = fs1.index (ij[0], ij[1]);
-
               grid1.gidx2ij (jglo, ij);
+              jloc = fs1.index (ij[0], ij[1]);
 
               // Check this (i, j) is held by current MPI task
               ATLAS_ASSERT ((fs1.j_begin () <= ij[1]) && (ij[1] < fs1.j_end ()));
@@ -511,7 +510,6 @@ create_shuffle4 (const StructuredGrid & grid1,
 
               jloc = fs1.index (ij[0], ij[1]);
             }
-
           shuffle4.yl_send[i].iloc[j] = jloc;
         }
       shuffle4.yl_send[i].iglo.clear ();
@@ -621,7 +619,7 @@ if (k >= pgp1[jfld].size ()) abort ();
   
   for (int jfld = 0; jfld < infld; jfld++)
     {
-      pgp2e.add (Field (std::string ("#") + std::to_string (jfld), 
+      pgp2e.add (Field (pgp1[jfld].name (),
                         atlas::array::DataType::kind<T> (), 
                         atlas::array::make_shape (shuffle4.isize_recv)));
       auto v = array::make_view<T,1> (pgp2e[jfld]);
@@ -766,6 +764,46 @@ create_weights4 (const shuffle4_t & shuffle4)
 }
 
 
+template <typename T>
+FieldSet
+do_interpolation4 (const shuffle4_t & shuffle4, const weights4_t & weights4, const FieldSet & pgp1)
+{
+  FieldSet pgp2;
+
+  auto & comm = atlas::mpi::comm ();
+  int myproc = comm.rank (), nproc = comm.size ();
+
+  int infld = pgp1.size ();
+
+  size_t size2 = shuffle4.fs2.sizeOwned ();
+
+  auto pgp2e = do_shuffle4<T> (shuffle4, pgp1);
+  
+  for (int jfld = 0; jfld < infld; jfld++)
+    pgp2.add (Field (pgp1[jfld].name (),
+              atlas::array::DataType::kind<T> (), 
+              atlas::array::make_shape (size2)));
+
+  for (int jfld = 0; jfld < infld; jfld++)
+    {
+      auto v2  = array::make_view<T,1> (pgp2 [jfld]);
+      auto v2e = array::make_view<T,1> (pgp2e[jfld]);
+      // TODO : Use OpenMP
+      for (int jloc2 = 0; jloc2 < size2; jloc2++)
+        {
+          int kisw = 4*(jloc2+1)+shuffle4_t::ISW-1, jisw = shuffle4.isort[kisw];
+          int kise = 4*(jloc2+1)+shuffle4_t::ISE-1, jise = shuffle4.isort[kise];
+          int kinw = 4*(jloc2+1)+shuffle4_t::INW-1, jinw = shuffle4.isort[kinw];
+          int kine = 4*(jloc2+1)+shuffle4_t::INE-1, jine = shuffle4.isort[kine];
+          v2 (jloc2) = 
+            weights4.values[kisw] * v2e[jisw] + weights4.values[kise] * v2e[jise] + 
+            weights4.values[kinw] * v2e[jinw] + weights4.values[kine] * v2e[jine];
+        }
+    }
+
+  return pgp2;
+}
+
 int main (int argc, char * argv[]) 
 {
   atlas::Library::instance ().initialise (argc, argv);
@@ -815,6 +853,7 @@ if(0)
     }
 }
 
+
   comm.barrier ();
 
   printf (" --- start ---\n");
@@ -830,8 +869,8 @@ if(0)
   functionspace::StructuredColumns fs1 {grid1, dist1};
   functionspace::StructuredColumns fs2 {grid2, dist2};
 
-
   auto shuffle4 = create_shuffle4 (grid1, grid2, dist1, dist2, fs1, fs2);
+
 
   auto lonlat1 = getLonLat (fs1);
   auto lonlat2 = getLonLat (fs2);
@@ -844,37 +883,80 @@ if(0)
   auto lat2e = array::make_view<double,1> (lonlat2e[1]);
   
 
-
-
-  for (int jloc2 = 0; jloc2 < lat2.size (); jloc2++)
+//for (int jloc2 = 0; jloc2 < lat2.size (); jloc2++)
+if(1)
+  for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
     {
-      int jisw = shuffle4.isort[4*(jloc2+1)+shuffle4_t::ISW-1];
-      int jise = shuffle4.isort[4*(jloc2+1)+shuffle4_t::ISE-1];
-      int jinw = shuffle4.isort[4*(jloc2+1)+shuffle4_t::INW-1];
-      int jine = shuffle4.isort[4*(jloc2+1)+shuffle4_t::INE-1];
+      int _jisw = 4*(jloc2+1)+shuffle4_t::ISW-1;
+      int _jise = 4*(jloc2+1)+shuffle4_t::ISE-1;
+      int _jinw = 4*(jloc2+1)+shuffle4_t::INW-1;
+      int _jine = 4*(jloc2+1)+shuffle4_t::INE-1;
 
-      if (jisw < 0) printf (" jloc2 = %8d, jisw = %8ld\n", jloc2, jisw);
-      if (jinw < 0) printf (" jloc2 = %8d, jinw = %8ld\n", jloc2, jinw);
-      if (jise < 0) printf (" jloc2 = %8d, jise = %8ld\n", jloc2, jise);
-      if (jine < 0) printf (" jloc2 = %8d, jine = %8ld\n", jloc2, jine);
+      if ((_jisw < 0) || (_jisw >= shuffle4.isort.size ())) std::cout << " jloc2, _jisw = " << jloc2 << ", " << _jisw << std::endl;;
+      if ((_jinw < 0) || (_jinw >= shuffle4.isort.size ())) std::cout << " jloc2, _jinw = " << jloc2 << ", " << _jinw << std::endl;;
+      if ((_jise < 0) || (_jise >= shuffle4.isort.size ())) std::cout << " jloc2, _jise = " << jloc2 << ", " << _jise << std::endl;;
+      if ((_jine < 0) || (_jine >= shuffle4.isort.size ())) std::cout << " jloc2, _jine = " << jloc2 << ", " << _jine << std::endl;;
 
-//    if (! ((lon2e (jinw) <= lon2 (jloc2)) && (lon2 (jloc2) <= lon2e (jine)) && 
-//           (lon2e (jisw) <= lon2 (jloc2)) && (lon2 (jloc2) <= lon2e (jise))))
-//      {
-//        printf (" LON %8d | %12.4f %12.4f < (%12.4f, %12.4f) < %12.4f %12.4f\n", 
-//                jloc2, lon2e (jinw), lon2e (jisw), 
-//                lon2 (jloc2), lat2 (jloc2), lon2e (jine), lon2e (jise));
-//      }
-//    if (! ((lat2e (jinw) >= lat2 (jloc2)) && (lat2 (jloc2) >= lat2e (jisw)) && 
-//           (lat2e (jine) >= lat2 (jloc2)) && (lat2 (jloc2) >= lat2e (jise))))
-//      {
-//        printf (" LAT %8d | %12.4f %12.4f > (%12.4f, %12.4f) > %12.4f %12.4f\n", 
-//                jloc2, lat2e (jinw), lat2e (jine), 
-//                lon2 (jloc2), lat2 (jloc2), lat2e (jisw), lat2e (jise));
-//      }
+      int jisw = shuffle4.isort[_jisw];
+      int jise = shuffle4.isort[_jise];
+      int jinw = shuffle4.isort[_jinw];
+      int jine = shuffle4.isort[_jine];
+
+      if (jisw < 0) std::cout << " jloc2, _jisw, jisw = " << jloc2 << ", " << _jisw << ", " << jisw << std::endl;;
+      if (jinw < 0) std::cout << " jloc2, _jinw, jinw = " << jloc2 << ", " << _jinw << ", " << jinw << std::endl;;
+      if (jise < 0) std::cout << " jloc2, _jise, jise = " << jloc2 << ", " << _jise << ", " << jise << std::endl;;
+      if (jine < 0) std::cout << " jloc2, _jine, jine = " << jloc2 << ", " << _jine << ", " << jine << std::endl;;
+
+      if (! ((lon2e (jinw) <= lon2 (jloc2)) && (lon2 (jloc2) <= lon2e (jine)) && 
+             (lon2e (jisw) <= lon2 (jloc2)) && (lon2 (jloc2) <= lon2e (jise))))
+        {
+          printf (" LON %8d | %12.4f %12.4f < (%12.4f, %12.4f) < %12.4f %12.4f\n", 
+                  jloc2, lon2e (jinw), lon2e (jisw), 
+                  lon2 (jloc2), lat2 (jloc2), lon2e (jine), lon2e (jise));
+        }
+      if (! ((lat2e (jinw) >= lat2 (jloc2)) && (lat2 (jloc2) >= lat2e (jisw)) && 
+             (lat2e (jine) >= lat2 (jloc2)) && (lat2 (jloc2) >= lat2e (jise))))
+        {
+          printf (" LAT %8d | %12.4f %12.4f > (%12.4f, %12.4f) > %12.4f %12.4f\n", 
+                  jloc2, lat2e (jinw), lat2e (jine), 
+                  lon2 (jloc2), lat2 (jloc2), lat2e (jisw), lat2e (jise));
+        }
     }
 
-  
+  weights4_t weights4 = create_weights4 (shuffle4);
+
+  auto xyz1 = getXYZ (fs1);
+  auto xyz2 = getXYZ (fs2);
+  auto xyz2i = do_interpolation4<double> (shuffle4, weights4, xyz1);
+
+  auto x2  = array::make_view<double,1> (xyz2 [0]);
+  auto y2  = array::make_view<double,1> (xyz2 [1]);
+  auto z2  = array::make_view<double,1> (xyz2 [2]);
+
+  auto x2i = array::make_view<double,1> (xyz2i[0]);
+  auto y2i = array::make_view<double,1> (xyz2i[1]);
+  auto z2i = array::make_view<double,1> (xyz2i[2]);
+
+  for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
+    {
+      double dx = x2  (jloc2) - x2i (jloc2);
+      double dy = y2  (jloc2) - y2i (jloc2);
+      double dz = z2  (jloc2) - z2i (jloc2);
+
+      double n = sqrt (x2i (jloc2) * x2i (jloc2) + y2i (jloc2) * y2i (jloc2) + z2i (jloc2) * z2i (jloc2));
+      x2i (jloc2) /= n;
+      y2i (jloc2) /= n;
+      z2i (jloc2) /= n;
+
+      double a = acos (std::min (+1.0, std::max (-1.0, x2 (jloc2) * x2i (jloc2) + y2 (jloc2) * y2i (jloc2) + z2 (jloc2) * z2i (jloc2))));
+
+      printf (" (%12.4f, %12.4f, %12.4f) (%12.4f, %12.4f, %12.4f) %12.4f %12.4f\n",
+              x2  (jloc2), y2  (jloc2), z2  (jloc2),
+              x2i (jloc2), y2i (jloc2), z2i (jloc2),
+              sqrt (dx * dx + dy * dy + dz * dz) * rad2deg, a * rad2deg);
+    }
+
+
 
 
   atlas::Library::instance ().finalise ();

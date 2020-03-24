@@ -543,8 +543,13 @@ do_shuffle4 (const shuffle4_t & shuffle4, const FieldSet & pgp1)
   // Temporary buffers
   
   atlas::vector<T> 
-     zbufr (shuffle4.isize_recv),
-     zbufs (shuffle4.isize_send);
+     zbufr (shuffle4.isize_recv * infld),
+     zbufs (shuffle4.isize_send * infld);
+
+if(0){
+  printf (" isize_recv = %d\n", shuffle4.isize_recv * infld);
+  printf (" isize_send = %d\n", shuffle4.isize_send * infld);
+}
 
   auto & comm = atlas::mpi::comm ();
 
@@ -556,6 +561,7 @@ do_shuffle4 (const shuffle4_t & shuffle4, const FieldSet & pgp1)
      reqrecv (shuffle4.yl_recv.size ()), 
      reqsend (shuffle4.yl_send.size ());
 
+
   // Check dimensions & type of pgp1 
 
   for (int jfld = 0; jfld < pgp1.size (); jfld++)
@@ -566,15 +572,23 @@ do_shuffle4 (const shuffle4_t & shuffle4, const FieldSet & pgp1)
       if (f.size () < shuffle4.size1)
         throw_Exception ("Field too small", Here ());
     }
+
   
   std::fill (std::begin (zbufr), std::begin (zbufr) + shuffle4.yl_recv[0].ioff, 0);
 
   // Post receives
 
   for (int i = 0; i < shuffle4.yl_recv.size (); i++)
+    {
     reqrecv[i] = comm.iReceive (&zbufr[infld*shuffle4.yl_recv[i].ioff], 
                                 shuffle4.yl_recv[i].icnt * infld,
                                 shuffle4.yl_recv[i].iprc, 101);
+  if(0)
+  printf (" RECV %8d .. %8d (%8d) FROM %8d\n", infld*shuffle4.yl_recv[i].ioff, 
+        infld*shuffle4.yl_recv[i].ioff + shuffle4.yl_recv[i].icnt * infld, 
+        shuffle4.yl_recv[i].icnt * infld, shuffle4.yl_recv[i].iprc);
+
+    }
 
   comm.barrier ();
 
@@ -588,10 +602,19 @@ do_shuffle4 (const shuffle4_t & shuffle4, const FieldSet & pgp1)
         {
           auto v = array::make_view<T,1> (pgp1[jfld]);
           for (int k = 0; k < icnt; k++)
-            zbufs[infld*ioff+jfld*icnt+k] = v (k);
+            {
+if (k < 0) abort ();
+if (k >= pgp1[jfld].size ()) abort ();
+            zbufs[infld*ioff+jfld*icnt+k] = v (shuffle4.yl_send[i].iloc[k]);
+            }
         }
       reqsend[i] = comm.iSend (&zbufs[infld*ioff], icnt * infld,
                                shuffle4.yl_send[i].iprc, 101);
+
+  if(0)
+  printf (" SEND %8d .. %8d (%8d)  TO  %8d\n", infld*ioff, infld*ioff + icnt * infld, 
+        icnt * infld, shuffle4.yl_send[i].iprc);
+
     }
 
   // Create fields in pgp2
@@ -626,6 +649,33 @@ do_shuffle4 (const shuffle4_t & shuffle4, const FieldSet & pgp1)
     comm.wait (req);
 
   return pgp2e;
+}
+
+FieldSet 
+getLonLat (const functionspace::StructuredColumns & fs)
+{
+  FieldSet lonlat;
+
+  auto t = atlas::array::DataType::kind<double> ();
+  auto s = atlas::array::make_shape (fs.sizeOwned ());
+
+  lonlat.add (Field (std::string ("lon"), t, s));
+  lonlat.add (Field (std::string ("lat"), t, s));
+  
+  auto lon = array::make_view<double,1> (lonlat[0]);
+  auto lat = array::make_view<double,1> (lonlat[1]);
+
+  auto i = array::make_view<int,1> (fs.index_i ());
+  auto j = array::make_view<int,1> (fs.index_j ());
+
+  for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
+    {
+      PointLonLat ll = fs.grid ().StructuredGrid::lonlat (i (jloc)-1, j (jloc)-1);
+      lon (jloc) = ll.lon ();
+      lat (jloc) = ll.lat ();
+    }
+
+  return lonlat;
 }
 
 FieldSet 
@@ -777,172 +827,55 @@ if(0)
   ReducedGaussianGrid grid2 (pl2);
   grid::Distribution dist2 (nproc, grid2.size (), partition2, 1);
 
-if(0){
-  const auto & part2 = dist2.partition ();
-
-  printf ("-- part2 --\n");
-  for (int i = 0; i < part2.size (); i++)
-    printf (" %8d > %8d\n", i, part2[i]);
-
-
-  printf ("-- grid2 --\n");
-  for (int iy = 0; iy < grid2.ny (); iy++)
-  for (int ix = 0; ix < grid2.nx (iy); ix++)
-    {
-      double lonlat[2];
-      grid2.StructuredGrid::lonlat (ix, iy, lonlat);
-      printf (" %8d > %12.4f %12.4f\n", iy, lonlat[0], lonlat[1]);
-    }
-
-
-}
-
   functionspace::StructuredColumns fs1 {grid1, dist1};
-
-  auto i1 = array::make_view<int,1> (fs1.index_i ());
-  auto j1 = array::make_view<int,1> (fs1.index_j ());
-
-  Field x1 = fs1.createField<double> (option::name ("x"));
-  Field y1 = fs1.createField<double> (option::name ("y"));
-  Field z1 = fs1.createField<double> (option::name ("z"));
-
-  // Create xyz fields
-  {
-    auto vx1 = array::make_view<double,1> (x1);
-    auto vy1 = array::make_view<double,1> (y1);
-    auto vz1 = array::make_view<double,1> (z1);
-
-    for (int k = 0; k < fs1.sizeOwned (); k++)
-      {
-        double lonlat[2];
-        grid1.StructuredGrid::lonlat (i1 (k)-1, j1 (k)-1, lonlat);
-        gidx_t gidx = grid1.ij2gidx (i1 (k)-1, j1 (k)-1);
-        double coslon = cos (deg2rad * lonlat[0]), sinlon = sin (deg2rad * lonlat[0]);
-        double coslat = cos (deg2rad * lonlat[0]), sinlat = sin (deg2rad * lonlat[0]);
-        double x = coslon * coslat, y = sinlon * coslat, z = sinlat;
-        vx1 (k) = x; vy1 (k) = y; vz1 (k) = z;
-//      printf (" %8d, %8d > %8d > %12.4f, %12.4f\n", i1 (k)-1, j1 (k)-1, gidx, lonlat[1], lonlat[0]);
-      }
-
-  }
-  
   functionspace::StructuredColumns fs2 {grid2, dist2};
 
-if(0){
-  printf (" j_begin, j_end = %8d, %8d\n", fs2.j_begin (), fs2.j_end ());
 
-  for (int j = fs2.j_begin (); j < fs2.j_end (); j++)
-    printf (" %8d > i_begin, i_end = %8d, %8d\n", j, fs2.i_begin (j), fs2.i_end (j));
+  auto shuffle4 = create_shuffle4 (grid1, grid2, dist1, dist2, fs1, fs2);
 
-  printf ("-- i,j > index --\n");
+  auto lonlat1 = getLonLat (fs1);
+  auto lonlat2 = getLonLat (fs2);
+  auto lonlat2e = do_shuffle4<double> (shuffle4, lonlat1);
 
-
-  for (int j = fs2.j_begin (); j < fs2.j_end (); j++)
-  for (int i = fs2.i_begin (j); i < fs2.i_end (j); i++)
-    printf (" %8d, %8d > %8d\n", i, j, fs2.index (i, j));
-}
-   
-  create_shuffle4 (grid1, grid2, dist1, dist2, fs1, fs2);
-
-
-#ifdef UNDEF
-
-  bool verbose = atoi (argv[1]);
-  const int NX = atoi (argv[2]), NY = atoi (argv[3]);
-  bool light = atoi (argv[4]);
-
-  grid::Distribution dist;
-
-  if (light)
-    dist = grid::Distribution (grid, Config ("light", light) | Config ("blocksize", NX));
-  else
-
-  pt ("dist");
-
-if(verbose)
-  for (int j = 0, g = 0; j < NY; j++)
-  for (int i = 0; i < NX; i++, g++)
-    {
-      int p = dist.partition (g);
-      printf (" %8d -> %8d\n", g, p);
-    }
+  auto lon2 = array::make_view<double,1> (lonlat2[0]);
+  auto lat2 = array::make_view<double,1> (lonlat2[1]);
   
-  functionspace::StructuredColumns fs {grid, dist, Config ("halo", 40)};
+  auto lon2e = array::make_view<double,1> (lonlat2e[0]);
+  auto lat2e = array::make_view<double,1> (lonlat2e[1]);
+  
 
-  pt ("fs");
 
-  int k = 0;
 
-if(verbose)
-  for (const auto & xy : grid.xy ())
+  for (int jloc2 = 0; jloc2 < lat2.size (); jloc2++)
     {
-      const PointLonLat ll = grid.projection ().lonlat (xy);
-      printf (" %8d > %20.10f, %20.10f | %20.10f, %20.10f\n", k, ll.lon (), ll.lat (), xy.x (), xy.y ());
-      k++;
+      int jisw = shuffle4.isort[4*(jloc2+1)+shuffle4_t::ISW-1];
+      int jise = shuffle4.isort[4*(jloc2+1)+shuffle4_t::ISE-1];
+      int jinw = shuffle4.isort[4*(jloc2+1)+shuffle4_t::INW-1];
+      int jine = shuffle4.isort[4*(jloc2+1)+shuffle4_t::INE-1];
+
+      if (jisw < 0) printf (" jloc2 = %8d, jisw = %8ld\n", jloc2, jisw);
+      if (jinw < 0) printf (" jloc2 = %8d, jinw = %8ld\n", jloc2, jinw);
+      if (jise < 0) printf (" jloc2 = %8d, jise = %8ld\n", jloc2, jise);
+      if (jine < 0) printf (" jloc2 = %8d, jine = %8ld\n", jloc2, jine);
+
+//    if (! ((lon2e (jinw) <= lon2 (jloc2)) && (lon2 (jloc2) <= lon2e (jine)) && 
+//           (lon2e (jisw) <= lon2 (jloc2)) && (lon2 (jloc2) <= lon2e (jise))))
+//      {
+//        printf (" LON %8d | %12.4f %12.4f < (%12.4f, %12.4f) < %12.4f %12.4f\n", 
+//                jloc2, lon2e (jinw), lon2e (jisw), 
+//                lon2 (jloc2), lat2 (jloc2), lon2e (jine), lon2e (jise));
+//      }
+//    if (! ((lat2e (jinw) >= lat2 (jloc2)) && (lat2 (jloc2) >= lat2e (jisw)) && 
+//           (lat2e (jine) >= lat2 (jloc2)) && (lat2 (jloc2) >= lat2e (jise))))
+//      {
+//        printf (" LAT %8d | %12.4f %12.4f > (%12.4f, %12.4f) > %12.4f %12.4f\n", 
+//                jloc2, lat2e (jinw), lat2e (jine), 
+//                lon2 (jloc2), lat2 (jloc2), lat2e (jisw), lat2e (jise));
+//      }
     }
 
-  auto lonlat       = array::make_view<double, 2> (fs.xy ());
-  auto global_index = array::make_view<  long, 1> (fs.global_index ());
-  auto partition    = array::make_view<   int, 1> (fs.partition ());
+  
 
-  Field field = fs.createField<double> (option::name ("myproc"));
-
-  pt ("field");
-
-if(verbose)
-  printf (" fs.size () = %d\n", fs.size ());
-
-if(verbose)
-  for (int i = 0; i < fs.size (); i++)
-    printf (" %8d > %8d | %c | %20.10f, %20.10f\n", 
-            global_index (i)-1, partition (i),  
-            partition (i) == myproc ? ' ' : 'G', 
-            lonlat (i, LON), lonlat (i, LAT));
-
-  auto view = array::make_view<double, 1> (field);
-
-  for (int i = 0; i < fs.size (); i++)
-    if (partition (i) == myproc)
-      view (i) = double (myproc);
-    else
-      view (i) = -1.0;
-
-  field.haloExchange ();
-  pt ("halo");
-
-if(verbose)
-  printf (" -- field --\n");
-
-if(verbose)
-  for (int i = 0; i < fs.size (); i++)
-    printf (" %8d > %8d | %c | %20.10f\n", 
-            global_index (i)-1, partition (i),  
-            partition (i) == myproc ? ' ' : 'G', 
-            view (i));
-
-  StructuredGrid grid2 ("N16");
-  grid::Distribution dist2 (grid2, Config ("type", "equal_regions"));
-//functionspace::StructuredColumns fs2 {grid2, dist2, Config ("halo", 1)};
-  functionspace::StructuredColumns fs2 {grid2, dist2};
-  Field field2 = fs2.createField<double> (option::name ("myproc1"));
-
-  std::cout << " fs.size () = " << fs.size () << std::endl;
-  std::cout << " grid.size () = " << grid.size () << std::endl;
-
-  std::cout << " fs2.size () = " << fs2.size () << std::endl;
-  std::cout << " grid2.size () = " << grid2.size () << std::endl;
-
-
-  Interpolation interpolation_fwd (Config ("type", "structured-bilinear"), fs, fs2);
-  interpolation_fwd.execute (field, field2);
-
-  auto view2 = array::make_view<double, 1> (field2);
-
-  for (int i = 0; i < fs2.size (); i++)
-    printf (" %8d > %20.10f\n", i, view2 (i));
-
-
-#endif
 
   atlas::Library::instance ().finalise ();
 

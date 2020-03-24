@@ -86,9 +86,6 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
 
 }
 
-const int interpolation4::ISW = -3, interpolation4::ISE = -2, 
-          interpolation4::INW = -1, interpolation4::INE = -0;
-
 interpolation4::interpolation4 
 (const atlas::grid::Distribution & _dist1, const atlas::functionspace::StructuredColumns & _fs1,
  const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)

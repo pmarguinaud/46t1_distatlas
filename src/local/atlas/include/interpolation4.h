@@ -21,6 +21,15 @@ public:
   template <typename T> atlas::FieldSet
   interpolate (const atlas::FieldSet &);
 
+  enum
+  {
+    ISW = -3, 
+    ISE = -2, 
+    INW = -1, 
+    INE = -0 
+  };
+
+
 private:
 
   class weights4_t
@@ -65,7 +74,6 @@ private:
   const atlas::functionspace::StructuredColumns fs1;
   const atlas::functionspace::StructuredColumns fs2;
 
-  static const int ISW, ISE, INW, INE;
 
   class weights4_t weights4;
 };

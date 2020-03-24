@@ -86,14 +86,13 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
 
 }
 
-const int interpolate4::ISW = -3, interpolate4::ISE = -2, 
-          interpolate4::INW = -1, interpolate4::INE = -0;
+const int interpolation4::ISW = -3, interpolation4::ISE = -2, 
+          interpolation4::INW = -1, interpolation4::INE = -0;
 
-interpolate4::interpolate4 
+interpolation4::interpolation4 
 (const atlas::grid::Distribution & _dist1, const atlas::functionspace::StructuredColumns & _fs1,
  const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
-: dist1 (_dist1), fs1 (_fs1), grid1 (fs1.grid ()), 
-  dist2 (_dist2), fs2 (_fs2), grid2 (fs2.grid ())
+: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
 {
   size1 = fs1.sizeOwned ();
   size2 = fs2.sizeOwned ();
@@ -401,10 +400,11 @@ interpolate4::interpolate4
   for (const auto & r : yl_send)
     isize_send += r.icnt;
 
+  create_weights ();
 }
 
 template <typename T> atlas::FieldSet
-interpolate4::shuffle (const atlas::FieldSet & pgp1)
+interpolation4::shuffle (const atlas::FieldSet & pgp1)
 {
   atlas::FieldSet pgp2e;
 
@@ -505,7 +505,7 @@ if (k >= pgp1[jfld].size ()) abort ();
 }
 
 void
-interpolate4::create_weights ()
+interpolation4::create_weights ()
 {
   auto xyz1 = getXYZ (fs1);
   auto xyz2 = getXYZ (fs2);
@@ -558,7 +558,7 @@ interpolate4::create_weights ()
 
 template <typename T>
 atlas::FieldSet
-interpolate4::interpolate (const atlas::FieldSet & pgp1)
+interpolation4::interpolate (const atlas::FieldSet & pgp1)
 {
   atlas::FieldSet pgp2;
 
@@ -595,4 +595,11 @@ interpolate4::interpolate (const atlas::FieldSet & pgp1)
 
   return pgp2;
 }
+
+
+#define DEF(T) \
+template atlas::FieldSet interpolation4::interpolate<T>  (const atlas::FieldSet &); 
+
+DEF (double);
+
 

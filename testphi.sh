@@ -8,11 +8,19 @@ set -x
 
 rm bin/TESTPHI
 
+set -e
 CXX="/home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/INTELMPI184274MT/mpic++ /home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/I185274/icpc -std=c++11"
 
-$CXX -g -o bin/TESTPHI src/local/atlas/programs/testphi.cc -I/home/gmap/mrpm/marguina/atlas-intel/install/include -L/home/gmap/mrpm/marguina/atlas-intel/install/lib -Wl,-rpath,/home/gmap/mrpm/marguina/atlas-intel/install/lib -latlas -leckit -leckit_geometry -leckit_mpi
-$CXX -g -c -o src/local/atlas/interpolation/interpolation4.o src/local/atlas/interpolation/interpolation4.cc -I/home/gmap/mrpm/marguina/atlas-intel/install/include -Isrc/local/atlas/include
+$CXX -g -c -o src/local/atlas/interpolation/interpolation4.o src/local/atlas/interpolation/interpolation4.cc \
+  -I/home/gmap/mrpm/marguina/atlas-intel/install/include -Isrc/local/atlas/include
 
+$CXX -g -o bin/TESTPHI src/local/atlas/programs/testphi.cc \
+  src/local/atlas/interpolation/interpolation4.o \
+  -I/home/gmap/mrpm/marguina/atlas-intel/install/include \
+  -Isrc/local/atlas/include \
+  -L/home/gmap/mrpm/marguina/atlas-intel/install/lib -Wl,-rpath,/home/gmap/mrpm/marguina/atlas-intel/install/lib \
+  -latlas -leckit -leckit_geometry -leckit_mpi
+set +e
 
 JOBID=$(perl -e ' print(time ())')
 PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x

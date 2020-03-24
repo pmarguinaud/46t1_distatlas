@@ -6,14 +6,14 @@
 
 #include <vector>
 
-class interpolate4
+class interpolation4
 {
 public:
   
-  interpolate4 () = default;
+  interpolation4 () = default;
 
-  interpolate4 (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
-              const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
+  interpolation4 (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
+                  const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
 
   template <typename T> atlas::FieldSet
   shuffle (const atlas::FieldSet &);
@@ -62,8 +62,8 @@ private:
   size_t size1;
   size_t size2;
 
-  atlas::functionspace::StructuredColumns fs1;
-  atlas::functionspace::StructuredColumns fs2;
+  const atlas::functionspace::StructuredColumns fs1;
+  const atlas::functionspace::StructuredColumns fs2;
 
   static const int ISW, ISE, INW, INE;
 

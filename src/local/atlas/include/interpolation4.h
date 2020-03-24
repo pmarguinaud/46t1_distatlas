@@ -2,24 +2,25 @@
 
 #include "atlas/grid.h"
 #include "atlas/functionspace.h"
+#include "atlas/util/ObjectHandle.h"
 #include "atlas/field.h"
 
 #include <vector>
 
-class interpolation4
+class interpolation4impl
 {
 public:
   
-  interpolation4 () = default;
+  interpolation4impl () = default;
 
-  interpolation4 (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
-                  const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
-
-  template <typename T> atlas::FieldSet
-  shuffle (const atlas::FieldSet &);
+  interpolation4impl (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
+                      const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
 
   template <typename T> atlas::FieldSet
-  interpolate (const atlas::FieldSet &);
+  shuffle (const atlas::FieldSet &) const;
+
+  template <typename T> atlas::FieldSet
+  interpolate (const atlas::FieldSet &) const;
 
   enum
   {
@@ -78,6 +79,32 @@ private:
   class weights4_t weights4;
 };
 
+
+class interpolation4 : public atlas::util::ObjectHandle<interpolation4impl> 
+{
+public:
+  interpolation4 () = default;
+
+  interpolation4 
+  (const atlas::grid::Distribution & dist1, const atlas::functionspace::StructuredColumns & fs1,
+   const atlas::grid::Distribution & dist2, const atlas::functionspace::StructuredColumns & fs2)
+   : Handle::Handle (new interpolation4impl (dist1, fs1, dist2, fs2))
+  {
+  }
+
+  template <typename T> atlas::FieldSet
+  shuffle (const atlas::FieldSet & pgp1) const
+  {
+    return get ()->shuffle<T> (pgp1);
+  }
+
+  template <typename T> atlas::FieldSet
+  interpolate (const atlas::FieldSet & pgp1) const
+  {
+    return get ()->interpolate<T> (pgp1);
+  }
+
+};
 
 
 

@@ -86,7 +86,7 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
 
 }
 
-interpolation4::interpolation4 
+interpolation4impl::interpolation4impl 
 (const atlas::grid::Distribution & _dist1, const atlas::functionspace::StructuredColumns & _fs1,
  const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
 : dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
@@ -401,7 +401,7 @@ interpolation4::interpolation4
 }
 
 template <typename T> atlas::FieldSet
-interpolation4::shuffle (const atlas::FieldSet & pgp1)
+interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
 {
   atlas::FieldSet pgp2e;
 
@@ -502,7 +502,7 @@ if (k >= pgp1[jfld].size ()) abort ();
 }
 
 void
-interpolation4::create_weights ()
+interpolation4impl::create_weights ()
 {
   auto xyz1 = getXYZ (fs1);
   auto xyz2 = getXYZ (fs2);
@@ -555,7 +555,7 @@ interpolation4::create_weights ()
 
 template <typename T>
 atlas::FieldSet
-interpolation4::interpolate (const atlas::FieldSet & pgp1)
+interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
 {
   atlas::FieldSet pgp2;
 
@@ -595,8 +595,9 @@ interpolation4::interpolate (const atlas::FieldSet & pgp1)
 
 
 #define DEF(T) \
-template atlas::FieldSet interpolation4::interpolate<T>  (const atlas::FieldSet &); 
+template atlas::FieldSet interpolation4impl::interpolate<T>  (const atlas::FieldSet &) const; 
 
 DEF (double);
+
 
 

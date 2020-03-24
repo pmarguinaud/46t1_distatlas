@@ -107,5 +107,10 @@ public:
 };
 
 
-
+extern "C"
+{
+interpolation4 * interpolation4__new 
+  (const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
+   const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *);
+};
 

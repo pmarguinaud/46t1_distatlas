@@ -601,3 +601,12 @@ DEF (double);
 
 
 
+interpolation4 * interpolation4__new 
+  (const atlas::grid::DistributionImpl * dist1, const atlas::functionspace::detail::StructuredColumns * fs1,
+   const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2)
+{
+  return new interpolation4 
+  (atlas::grid::Distribution (dist1), atlas::functionspace::StructuredColumns (fs1), 
+   atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2));
+}
+

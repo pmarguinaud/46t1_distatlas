@@ -109,8 +109,9 @@ public:
 
 extern "C"
 {
-interpolation4 * interpolation4__new 
+interpolation4impl * interpolation4__new 
   (const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
    const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *);
+atlas::field::FieldSetImpl * interpolation4__interpolate (interpolation4impl *, atlas::field::FieldSetImpl *);
 };
 

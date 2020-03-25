@@ -13,8 +13,7 @@ USE MODD_IO_SURF_ARO,  ONLY : SURFEX_FIELD_BUF_CACHE,      &
                             & SURFEX_FIELD_BUF_DEALLOC
 USE SFXFLDDESC_MOD,    ONLY : SFXFLDDESC, SFXFLDDESC_LOOKUP
 USE HADES
-!USE ATLAS_ARPEGE_MODULE,  only : wfatlas => wfa
-USE ATLAS_ARPEGE_MODULE,  only :  wfatlas
+USE ATLAS_ARPEGE_MODULE,  only :  wfaatlas => wfa
 
 
 
@@ -460,7 +459,7 @@ do jloop=1, 4
 end do 
 
 
-CALL WFATLAS ("ATLAS.T.fa",YLGRID2A,eFs,  &
+CALL WFAATLAS ("ATLAS.T.fa",YLGRID2A,eFs,  &
         & ["SURF","SFX.","SFX.","SFX."], [0,0,0,0], ["GEOPOTENTIEL","COVER002","COVER003","COVER001"],eFieldSet)
 !write(*,*) "shapes: ",shape(view),shape(ZFLD1 (:, JZS  ))
 !write(*,*) "test: ",YLHALO1%ISIZE,YLHALO1%IH_SIZE

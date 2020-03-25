@@ -261,6 +261,9 @@ if(0)
   grid::Distribution dist2 (nproc, grid2.size (), partition2, 1);
 
   functionspace::StructuredColumns fs1 {grid1, dist1};
+
+  printf (" fs1.j_begin (), fs1.j_end () = %8d, %8d\n", fs1.j_begin (), fs1.j_end ());
+
   functionspace::StructuredColumns fs2 {grid2, dist2};
 
   std::string f = std::string ("out2.") + std::to_string (myproc) + ".txt";

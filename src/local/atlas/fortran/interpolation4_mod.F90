@@ -61,6 +61,9 @@ function interpolate (this, pgp1) result (pgp2)
   type (atlas_FieldSet), intent(in) :: pgp1  
   type (atlas_FieldSet) :: pgp2
   pgp2 = atlas_FieldSet (interpolation4__interpolate (this%CPTR_PGIBUG_A, pgp1%CPTR_PGIBUG_A)) 
+  call pgp2%detach () ! Required here, because this comes from a temporary atlas::FieldSet object
+                      ! and the implementation object had its count increased to
+                      ! avoid deletion
   call pgp2%return ()
 end function
 

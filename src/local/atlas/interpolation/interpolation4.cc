@@ -614,7 +614,6 @@ atlas::field::FieldSetImpl * interpolation4__interpolate
 {
   atlas::FieldSet pgp2 = This->interpolate<double> (atlas::FieldSet (pgp1));
   atlas::field::FieldSetImpl * pgp2_ = pgp2.get ();
-  printf (" pgp2_ = 0x%llx\n", pgp2_);
   pgp2_->attach ();
   return pgp2_;
 }

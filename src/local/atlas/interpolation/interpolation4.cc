@@ -326,21 +326,19 @@ interpolation4impl::interpolation4impl
   for (int ii = 1; ii < inrecv; ii++)
     yl_recv[ii].ioff = yl_recv[ii-1].ioff + yl_recv[ii-1].icnt;
 
-// Exchange global indices of grid #1
+  // Exchange global indices of grid #1
 
   std::vector<eckit::mpi::Request> reqsend (insend), reqrecv (inrecv);
 
-// Send indices we need to send values for
-
+  // Send indices we need to send values for
   for (int i = 0; i < insend; i++)
-// Receive global indices in ILOCAL; they will be translated to local indices later
     reqsend[i] = comm.iReceive (&yl_send[i].iglo[0],
                                 yl_send[i].iglo.size (), 
                                 yl_send[i].iprc, 101);
 
   comm.barrier ();
 
-// Receive indices we shall send values for
+  // Receive indices we shall send values for
 
   for (int i = 0; i < inrecv; i++)
     reqrecv[i] = comm.iSend (&iglobal1[yl_recv[i].ioff], 
@@ -350,8 +348,8 @@ interpolation4impl::interpolation4impl
   for (int i = 0; i < insend; i++)
     comm.wait (reqsend[i]);
 
-// We have received the global indices we should transmit; decode them into
-// lat/lon indices, then into local indices
+  // We have received the global indices we should transmit; decode them into
+  // lat/lon indices, then into local indices
 
   for (int i = 0; i < insend; i++)
     {

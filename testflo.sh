@@ -6,7 +6,7 @@
 set -x
 
 
-rm bin/TESTFLO
+rm bin/TESTFLO stdeo.0.TESTFLO
 
 set -e
 CXX="/home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/INTELMPI184274MT/mpic++ /home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/I185274/icpc -std=c++11"

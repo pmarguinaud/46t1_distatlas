@@ -105,6 +105,48 @@ getLonLat (const functionspace::StructuredColumns & fs)
   return lonlat;
 }
 
+static 
+double distlonlat (double lon1, double lat1, double lon2, double lat2)
+{
+  double coslon1  = cos (lon1 * deg2rad), sinlon1  = sin (lon1 * deg2rad);
+  double coslat1  = cos (lat1 * deg2rad), sinlat1  = sin (lat1 * deg2rad);
+  double x1 = coslon1 * coslat1, y1 = sinlon1 * coslat1, z1 = sinlat1; 
+
+  double coslon2  = cos (lon2 * deg2rad), sinlon2  = sin (lon2 * deg2rad);
+  double coslat2  = cos (lat2 * deg2rad), sinlat2  = sin (lat2 * deg2rad);
+  double x2 = coslon2 * coslat2, y2 = sinlon2 * coslat2, z2 = sinlat2; 
+
+  return acos (x1 * x2 + y1 * y2 + z1 * z2) * rad2deg;
+}
+
+FieldSet
+getJGlo (const functionspace::StructuredColumns & fs)
+{
+  FieldSet jglo;
+
+  auto t = atlas::array::DataType::kind<double> ();
+  auto s = atlas::array::make_shape (fs.sizeOwned ());
+
+  jglo.add (Field (std::string ("jglo"), t, s));
+  
+  auto v = array::make_view<double,1> (jglo[0]);
+
+  auto i = atlas::array::make_view<int,1> (fs.index_i ());
+  auto j = atlas::array::make_view<int,1> (fs.index_j ());
+
+ 
+  const auto & grid = fs.grid ();
+
+  for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
+    {
+      atlas::gidx_t iglo = grid.ij2gidx (i (jloc)-1, j (jloc)-1);
+      v (jloc) = double (iglo);
+    }
+
+  return jglo;
+}
+
+
 FieldSet 
 getXYZ (const functionspace::StructuredColumns & fs)
 {
@@ -137,8 +179,14 @@ getXYZ (const functionspace::StructuredColumns & fs)
   return xyz;
 }
 
-struct shuffle_t
+class shuffle_t
 {
+public:
+
+  shuffle_t () = default;
+  shuffle_t (const grid::Distribution &, const functionspace::StructuredColumns &,
+             const grid::Distribution &, const functionspace::StructuredColumns &);
+
   size_t isize_recv;
   size_t isize_send;
 
@@ -149,7 +197,7 @@ struct shuffle_t
     size_t isize;              // Number of points we receive
     struct loccntoff_t
     {
-      atlas::idx_t iloc;        // Local indice
+      atlas::idx_t iloc;     // Local indice
       int          irem_cnt; // Remote count for current local indice
       int          irem_off; // Offset in remote buffer current local index
     };  
@@ -177,16 +225,12 @@ struct shuffle_t
   };
 
   std::vector<loc2cntoff_t> desc; // Size = number of points of grid #2 on this task
-  
-
 };
 
 
-shuffle_t
-create_shuffle (const grid::Distribution & dist1, const functionspace::StructuredColumns & fs1,
-                const grid::Distribution & dist2, const functionspace::StructuredColumns & fs2)
+shuffle_t::shuffle_t (const grid::Distribution & dist1, const functionspace::StructuredColumns & fs1,
+                      const grid::Distribution & dist2, const functionspace::StructuredColumns & fs2)
 {
-  shuffle_t shuffle;
 
   size_t size1 = fs1.sizeOwned ();
   size_t size2 = fs2.sizeOwned ();
@@ -211,8 +255,9 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
     atlas::gidx_t iglo1;  // Global indice on grid #1
     int iprc2;            // Task to send to on grid #2 (for averaging)
     atlas::gidx_t iglo2;  // Global indice on grid #2 (for averaging)
+    atlas::idx_t  iloc1;  // Local indice on grid #1
   };
-  
+
   std::vector<prcglo_t> prcglo1 (size1);
 
 
@@ -261,8 +306,8 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
 
 // TODO : handle non global domains (grid1.domain.global () == false)
 // TODO : handle shifted longitudes ??
-      double dx = inx2 * xspc2.dx ()[iy2];
-      ix2 = modulo (int (round (inx2 * xy2.x ()) / dx), inx2);
+      double dx = xspc2.dx ()[iy2];
+      ix2 = modulo (int (round (xy2.x () / dx)), inx2);
 
       gidx_t iglo2 = grid2.ij2gidx (ix2, iy2);
       int iprc2 = dist2.partition (iglo2);
@@ -271,6 +316,8 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
       prcglo1[jloc1].iglo1 = iglo1;
       prcglo1[jloc1].iglo2 = iglo2;
       prcglo1[jloc1].iprc2 = iprc2;
+      prcglo1[jloc1].iloc1 = jloc1;
+
     }
 
 
@@ -317,13 +364,13 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
 
   // Post receives
 
-  shuffle.yl_recv.resize (inrecv);
+  yl_recv.resize (inrecv);
 
   inrecv = 0;
   for (int iproc = 0; iproc < nproc; iproc++)
     if (irecvcnt[iproc])
       {
-        shuffle.yl_recv[inrecv].iproc = iproc;
+        yl_recv[inrecv].iproc = iproc;
         yl_exch_recv[inrecv].size = irecvcnt[iproc];
         yl_exch_recv[inrecv].iglo1iglo2.resize (2 * irecvcnt[iproc]);
         reqrecv[inrecv] = comm.iReceive (&yl_exch_recv[inrecv].iglo1iglo2[0],
@@ -338,7 +385,7 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
 
 // TODO : Use OpenMP
 
-  shuffle.yl_send.resize (insend);
+  yl_send.resize (insend);
 
   insend = 0;
   for (int iproc = 0; iproc < nproc; iproc++)
@@ -347,17 +394,17 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
         yl_exch_send[insend].size = isendcnt[iproc];
         yl_exch_send[insend].iglo1iglo2.resize (2 * isendcnt[iproc]);
 
-        shuffle.yl_send[insend].iproc = iproc;
-        shuffle.yl_send[insend].isize = isendcnt[iproc];
-        shuffle.yl_send[insend].iloc.resize (isendcnt[iproc]);
+        yl_send[insend].iproc = iproc;
+        yl_send[insend].isize = isendcnt[iproc];
+        yl_send[insend].iloc.resize (isendcnt[iproc]);
      
         // List of points of grid #1 to send to iproc
         for (int i = 0; i < isendcnt[iproc]; i++)
           {
-            int jloc1 = isendoff[iproc] + i;
-            shuffle.yl_send[insend].iloc[i] = prcglo1[jloc1].iglo1;
-            yl_exch_send[insend].iglo1iglo2[2*i+0] = prcglo1[jloc1].iglo1;
-            yl_exch_send[insend].iglo1iglo2[2*i+1] = prcglo1[jloc1].iglo2;
+            int jind1 = isendoff[iproc] + i;
+            yl_send[insend].iloc[i]        = prcglo1[jind1].iloc1;
+            yl_exch_send[insend].iglo1iglo2[2*i+0] = prcglo1[jind1].iglo1;
+            yl_exch_send[insend].iglo1iglo2[2*i+1] = prcglo1[jind1].iglo2;
           }
 
         reqsend[insend] = comm.iSend (&yl_exch_send[insend].iglo1iglo2[0],
@@ -366,8 +413,8 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
         insend++;
       }
 
-  shuffle.isize_send = 
-    std::accumulate (std::begin (shuffle.yl_send), std::end (shuffle.yl_send),
+  isize_send = 
+    std::accumulate (std::begin (yl_send), std::end (yl_send),
                      0, [] (int a, const shuffle_t::send_t & s)
                      {
                        return a + s.isize;
@@ -383,11 +430,10 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
   for (auto & yl_exch : yl_exch_send)
     yl_exch.iglo1iglo2.clear ();
 
-
-  for (int ii = 0; ii < shuffle.yl_recv.size (); ii++) 
+  for (int ii = 0; ii < yl_recv.size (); ii++) 
     {
       // Total number of points we get from this task
-      shuffle.yl_recv[ii].isize = yl_exch_recv[ii].iglo1iglo2.size () / 2;
+      yl_recv[ii].isize = yl_exch_recv[ii].iglo1iglo2.size () / 2;
 
       int inloc = 0; // Number of local indices we will process using points from this remote proc
 
@@ -401,10 +447,11 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
               jglo2 = iglo2;
             }
         }
+
         
       // Count number of different remote points for each local point on grid #2
       
-      shuffle.yl_recv[ii].desc.resize (inloc);
+      yl_recv[ii].desc.resize (inloc);
       
       jglo2 = -1;
       inloc = 0;
@@ -424,46 +471,46 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
               ATLAS_ASSERT ((fs2.j_begin () <= ij[1]) && (ij[1] < fs2.j_end ()));
               ATLAS_ASSERT ((fs2.i_begin (ij[1]) <= ij[0]) && (ij[0] < fs2.i_end (ij[1])));
 
-              shuffle.yl_recv[ii].desc[inloc].iloc = jloc2;
-              shuffle.yl_recv[ii].desc[inloc].irem_off = jj;
+              yl_recv[ii].desc[inloc].iloc = jloc2;
+              yl_recv[ii].desc[inloc].irem_off = jj;
 
               inloc++;
               jglo2 = iglo2;
             }
         }
 
-      int isize = shuffle.yl_recv[ii].desc.size ();
+      int isize = yl_recv[ii].desc.size ();
       for (int jj = 0; jj < isize-1; jj++)
-        shuffle.yl_recv[ii].desc[jj].irem_cnt = shuffle.yl_recv[ii].desc[jj+1].irem_off 
-                                              - shuffle.yl_recv[ii].desc[jj+0].irem_off;
+        yl_recv[ii].desc[jj].irem_cnt = yl_recv[ii].desc[jj+1].irem_off 
+                                      - yl_recv[ii].desc[jj+0].irem_off;
 
-      shuffle.yl_recv[ii].desc[isize-1].irem_cnt 
-                                              = shuffle.yl_recv[ii].isize 
-                                              - shuffle.yl_recv[ii].desc[isize-1].irem_off;
+      yl_recv[ii].desc[isize-1].irem_cnt 
+                                      = yl_recv[ii].isize 
+                                      - yl_recv[ii].desc[isize-1].irem_off;
       
     }
 
   // Total number of points received by this proc
-  shuffle.isize_recv = std::accumulate (std::begin (shuffle.yl_recv), std::end (shuffle.yl_recv), 
-                                        0, [] (int a, const shuffle_t::recv_t & r) { return a + r.isize; });
+  isize_recv = std::accumulate (std::begin (yl_recv), std::end (yl_recv), 
+                                0, [] (int a, const shuffle_t::recv_t & r) { return a + r.isize; });
 
-  shuffle.desc.resize (shuffle.isize_recv);
+  desc.resize (isize_recv);
 
-  for (auto & c : shuffle.desc)
+  for (auto & c : desc)
     c.icnt = 0;
 
-  for (int ii = 0; ii < shuffle.yl_recv.size (); ii++)
-  for (int jj = 0; jj < shuffle.yl_recv[ii].desc.size (); jj++)
+  for (int ii = 0; ii < yl_recv.size (); ii++)
+  for (int jj = 0; jj < yl_recv[ii].desc.size (); jj++)
     {
-      atlas::idx_t jloc2 = shuffle.yl_recv[ii].desc[jj].iloc;
+      atlas::idx_t jloc2 = yl_recv[ii].desc[jj].iloc;
       // Number of points for jloc2
-      shuffle.desc[jloc2].icnt += shuffle.yl_recv[ii].desc[jj].irem_cnt;
+      desc[jloc2].icnt += yl_recv[ii].desc[jj].irem_cnt;
     }
 
   // Offset of points for jloc2
-  shuffle.desc[0].ioff = 0;
+  desc[0].ioff = 0;
   for (int jloc2 = 1; jloc2 < fs2.sizeOwned (); jloc2++)
-    shuffle.desc[jloc2].ioff = shuffle.desc[jloc2-1].ioff + shuffle.desc[jloc2-1].ioff;
+    desc[jloc2].ioff = desc[jloc2-1].ioff + desc[jloc2-1].icnt;
 
 
   // Compute sort vector
@@ -474,24 +521,20 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
     atlas::gidx_t iglo1;
   };
 
-  std::vector<jloc2iglo1_t> isort (shuffle.isize_recv); 
-  std::vector<int> iord (shuffle.isize_recv);
-  std:iota (std::begin (iord), std::end (iord), 0);
+  std::vector<jloc2iglo1_t> isortk (isize_recv); 
 
-
-
-  for (int ii = 0, jl = 0; ii < shuffle.yl_recv.size (); ii++)
+  for (int ii = 0, jl = 0; ii < yl_recv.size (); ii++)
     {
 // TODO: Use OpenMP
-      for (int jj = 0; jj < shuffle.yl_recv[ii].desc.size (); jj++)
+      for (int jj = 0; jj < yl_recv[ii].desc.size (); jj++)
         {
-          int jloc2 = shuffle.yl_recv[ii].desc[jj].iloc         ;
-          int ioff  = shuffle.yl_recv[ii].desc[jj].irem_off + jl;
-          int icnt  = shuffle.yl_recv[ii].desc[jj].irem_cnt     ;
+          int jloc2 = yl_recv[ii].desc[jj].iloc         ;
+          int ioff  = yl_recv[ii].desc[jj].irem_off + jl;
+          int icnt  = yl_recv[ii].desc[jj].irem_cnt     ;
           for (int k = 0; k < icnt; k++)
-            isort[ioff+k].jloc2 = jloc2;
+            isortk[ioff+k].jloc2 = jloc2;
         }
-      jl = jl + shuffle.yl_recv[ii].desc.size ();
+      jl = jl + yl_recv[ii].isize;
     }
 
   for (int ii = 0, jl = 0; ii < yl_exch_recv.size (); ii++)
@@ -499,26 +542,29 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
       size_t isize = yl_exch_recv[ii].iglo1iglo2.size () / 2;
 // TODO: Use OpenMP
       for (int jj = 0; jj < isize; jj++)
-        isort[jl+jj].iglo1 = yl_exch_recv[ii].iglo1iglo2[2*jj+0];
+        isortk[jl+jj].iglo1 = yl_exch_recv[ii].iglo1iglo2[2*jj+0];
       jl = jl + isize;
     }
 
   // Sort by local index, remote index
 
-  std::sort (std::begin (iord), std::end (iord), [&isort] (int a, int b)
+  std::vector<int> iord (isize_recv);
+  std:iota (std::begin (iord), std::end (iord), 0);
+
+  std::sort (std::begin (iord), std::end (iord), [&isortk] (int a, int b)
              {
-               if (isort[a].jloc2 == isort[b].jloc2) 
-                 return isort[a].iglo1 < isort[b].iglo1;
-               return isort[a].jloc2 < isort[b].jloc2;
+               if (isortk[a].jloc2 == isortk[b].jloc2) 
+                 return isortk[a].iglo1 < isortk[b].iglo1;
+               return isortk[a].jloc2 < isortk[b].jloc2;
              });
 
-  shuffle.isort = reverse (iord);
+  isort = reverse (iord);
 
   int icount = 0;
 
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)  
     {
-      if (shuffle.desc[jloc2].icnt == 0)
+      if (desc[jloc2].icnt == 0)
         {
           icount++;
           if (icount < 20)
@@ -528,9 +574,6 @@ create_shuffle (const grid::Distribution & dist1, const functionspace::Structure
   if (icount > 0)
     std::cerr << " shuffle : no points were for " << icount << " points " << std::endl;
 
-
-
-  return shuffle;
 }
 
 FieldSet
@@ -539,6 +582,7 @@ do_shuffle (const shuffle_t & shuffle, const FieldSet & pgp1)
   FieldSet pgp2e;
 
   auto & comm = atlas::mpi::comm ();
+  const int myproc = comm.rank ();
 
   const int infld = pgp1.size ();
   const int insend = shuffle.yl_send.size ();
@@ -563,9 +607,6 @@ do_shuffle (const shuffle_t & shuffle, const FieldSet & pgp1)
       int iproc = shuffle.yl_recv[ii].iproc;
       size_t isize = shuffle.yl_recv[ii].isize;
       reqrecv[ii] = comm.iReceive (&zbufr[ioffr], isize * infld, iproc, 101);
-
-printf (" RECV FROM %8d : %8d ELEMENTS\n", iproc, isize * infld);
-
       ioffr = ioffr + infld * isize;
     }
 
@@ -594,7 +635,6 @@ printf (" RECV FROM %8d : %8d ELEMENTS\n", iproc, isize * infld);
             zbufs[ioffs+jfld*isize+jj] = v (shuffle.yl_send[ii].iloc[jj]);
         }
       reqsend[ii] = comm.iSend (&zbufs[ioffs], infld * isize, iproc, 101);
-printf (" SEND  TO  %8d : %8d ELEMENTS\n", iproc, isize * infld);
     }
 
 // TODO: Use MPI_WAITANY
@@ -642,37 +682,32 @@ int main (int argc, char * argv[])
   
   StructuredGrid grid1 ("L80x40");
   grid::Distribution dist1 = grid::Distribution (grid1, Config ("type", "checkerboard") | Config ("nbands", nproc));
-  ReducedGaussianGrid grid2 ("N16");
+  StructuredGrid grid2 ("N16");
   grid::Distribution dist2 (grid2, Config ("type", "equal_regions"));
 
 
 if(0){
-//const auto & part1 = dist1.partition ();
-//
-//printf ("-- part1 --\n");
-//for (int i = 0; i < part1.size (); i++)
-//  printf (" %8d > %8d\n", i, part1[i]);
-//
-//printf ("-- grid1 --\n");
-
-  for (int iy = 0; iy < grid1.ny (); iy++)
+  
+  printf ("-- grid1 --\n");
+  for (int iy = 0, iglo = 0; iy < grid1.ny (); iy++)
   for (int ix = 0; ix < grid1.nx (iy); ix++)
     {
       double lonlat[2];
       grid1.lonlat (ix, iy, lonlat);
-      printf (" %8d > %12.4f %12.4f\n", iy, lonlat[0], lonlat[1]);
+      printf (" %8d > %12.4f %12.4f\n", iglo, lonlat[0], lonlat[1]);
+      iglo++;
     }
 }
 
-if(0)
-{
-  int iglo = 0;
-  for (int iy = 0; iy < grid1.ny (); iy++)
-  for (int ix = 0; ix < grid1.nx (iy); ix++)
+if(0){
+  
+  printf ("-- grid2 --\n");
+  for (int iy = 0, iglo = 0; iy < grid2.ny (); iy++)
+  for (int ix = 0; ix < grid2.nx (iy); ix++)
     {
-      idx_t ij[2];
-      grid1.gidx2ij (iglo, ij);
-      printf (" ix, iy, iglo = %8d, %8d, %8d, ij = %8d, %8d\n", ix, iy, iglo, ij[0], ij[1]);
+      double lonlat[2];
+      grid2.lonlat (ix, iy, lonlat);
+      printf (" %8d > %12.4f %12.4f\n", iglo, lonlat[0], lonlat[1]);
       iglo++;
     }
 }
@@ -686,12 +721,57 @@ if(0)
   functionspace::StructuredColumns fs2 {grid2, dist2};
 
 
-  shuffle_t shuffle = create_shuffle (dist1, fs1, dist2, fs2);
+  shuffle_t shuffle (dist1, fs1, dist2, fs2);
 
   FieldSet lonlat1 = getLonLat (fs1);
   FieldSet lonlat2 = getLonLat (fs2);
 
   FieldSet lonlat2e = do_shuffle (shuffle, lonlat1);
+
+  {
+    auto lon2  = array::make_view<double,1> (lonlat2 [0]);
+    auto lat2  = array::make_view<double,1> (lonlat2 [1]);
+    auto lon2e = array::make_view<double,1> (lonlat2e[0]);
+    auto lat2e = array::make_view<double,1> (lonlat2e[1]);
+
+    for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
+      {
+        int icnt = shuffle.desc[jloc2].icnt;
+        printf (" %8d > (%12.4f, %12.4f) < %8d\n", jloc2, lon2[jloc2], lat2[jloc2], icnt);
+
+        for (int jj = 0; jj < icnt; jj++)
+          {
+            int ioff = shuffle.desc[jloc2].ioff;
+            printf ("         -> (%12.4f, %12.4f) %12.4f \n", 
+                    lon2e[ioff+jj], lat2e[ioff+jj], distlonlat (lon2[jloc2], lat2[jloc2],
+                    lon2e[ioff+jj], lat2e[ioff+jj]));
+          }
+      } 
+  }
+
+  FieldSet jglo1 = getJGlo (fs1);
+  FieldSet jglo2 = getJGlo (fs2);
+
+  FieldSet jglo2e = do_shuffle (shuffle, jglo1);
+
+  {
+    auto v2  = array::make_view<double,1> (jglo2 [0]);
+    auto v2e = array::make_view<double,1> (jglo2e[0]);
+
+if(0)
+    for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
+      {
+        int icnt = shuffle.desc[jloc2].icnt;
+        printf (" %8d > %8d\n", jloc2, int (v2[jloc2]));
+
+        for (int jj = 0; jj < icnt; jj++)
+          {
+            int ioff = shuffle.desc[jloc2].ioff;
+            printf ("         -> %8d\n", int (v2e[ioff+jj]));
+          }
+      } 
+  }
+
 
   atlas::Library::instance ().finalise ();
 

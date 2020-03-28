@@ -54,15 +54,14 @@ I reverse (const I & ord)
 
 };
 
-interpolationA::interpolationA 
-(const atlas::grid::Distribution & dist1, const atlas::functionspace::StructuredColumns & fs1,
- const atlas::grid::Distribution & dist2, const atlas::functionspace::StructuredColumns & fs2)
+interpolationAimpl::interpolationAimpl 
+(const atlas::grid::Distribution & _dist1, const atlas::functionspace::StructuredColumns & _fs1,
+ const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
+: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
 {
 
   size_t size1 = fs1.sizeOwned ();
   size_t size2 = fs2.sizeOwned ();
-  const auto & grid1 = fs1.grid ();
-  const auto & grid2 = fs2.grid ();
 
   auto & comm = atlas::mpi::comm ();
 
@@ -242,7 +241,7 @@ interpolationA::interpolationA
 
   isize_send = 
     std::accumulate (std::begin (yl_send), std::end (yl_send),
-                     0, [] (int a, const interpolationA::send_t & s)
+                     0, [] (int a, const interpolationAimpl::send_t & s)
                      {
                        return a + s.isize;
                      });
@@ -320,7 +319,7 @@ interpolationA::interpolationA
 
   // Total number of points received by this proc
   isize_recv = std::accumulate (std::begin (yl_recv), std::end (yl_recv), 
-                                0, [] (int a, const interpolationA::recv_t & r) { return a + r.isize; });
+                                0, [] (int a, const interpolationAimpl::recv_t & r) { return a + r.isize; });
 
   desc.resize (isize_recv);
 
@@ -404,7 +403,8 @@ interpolationA::interpolationA
 
 }
 
-atlas::FieldSet interpolationA::shuffle (const atlas::FieldSet & pgp1) const
+template <typename T>
+atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
 {
   atlas::FieldSet pgp2e;
 
@@ -419,15 +419,15 @@ atlas::FieldSet interpolationA::shuffle (const atlas::FieldSet & pgp1) const
 
   for (int jfld = 0; jfld < infld; jfld++)
     pgp2e.add (atlas::Field (pgp1[jfld].name (),
-                             atlas::array::DataType::kind<double> (), 
+                             atlas::array::DataType::kind<T> (), 
                              atlas::array::make_shape (isize_recv)));
 
   std::vector<eckit::mpi::Request> 
                      reqsend (insend), 
                      reqrecv (inrecv);
 
-  std::vector<double> zbufr (infld * isize_recv);
-  std::vector<double> zbufs (infld * isize_send);
+  std::vector<T> zbufr (infld * isize_recv);
+  std::vector<T> zbufs (infld * isize_send);
 
   for (int ii = 0, ioffr = 0; ii < inrecv; ii++)
     {
@@ -457,7 +457,7 @@ atlas::FieldSet interpolationA::shuffle (const atlas::FieldSet & pgp1) const
 // TODO: Use OpenMP
       for (int jfld = 0; jfld < infld; jfld++)
         {
-          auto v = atlas::array::make_view<double,1> (pgp1[jfld]);
+          auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
           for (int jj = 0; jj < isize; jj++)
             zbufs[ioffs+jfld*isize+jj] = v (yl_send[ii].iloc[jj]);
         }
@@ -485,7 +485,7 @@ atlas::FieldSet interpolationA::shuffle (const atlas::FieldSet & pgp1) const
 
       for (int jfld = 0; jfld < infld; jfld++)
         {
-          auto v = atlas::array::make_view<double,1> (pgp2e[jfld]);
+          auto v = atlas::array::make_view<T,1> (pgp2e[jfld]);
           for (int jj = 0; jj < isize; jj++)
             v (isort[ioffr+jj]) = zbufr[ioffr*infld+jfld*isize+jj];
         }
@@ -495,5 +495,63 @@ atlas::FieldSet interpolationA::shuffle (const atlas::FieldSet & pgp1) const
     comm.wait (reqsend[i]);
 
   return pgp2e;
+}
+
+template <typename T> atlas::FieldSet
+interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
+{
+  atlas::FieldSet pgp2;
+  atlas::FieldSet pgp2e = shuffle<T> (pgp1);
+
+  size_t size2 = fs2.sizeOwned ();
+
+  int infld = pgp1.size ();
+
+  for (int jfld = 0; jfld < infld; jfld++)
+    pgp2.add (atlas::Field (pgp1[jfld].name (),
+              atlas::array::DataType::kind<T> (), 
+              atlas::array::make_shape (size2)));
+
+  for (int jfld = 0; jfld < infld; jfld++)
+    {
+      auto v2  = atlas::array::make_view<T,1> (pgp2 [jfld]);
+      auto v2e = atlas::array::make_view<T,1> (pgp2e[jfld]);
+      for (int jloc2 = 0; jloc2 < size2; jloc2++)
+        {
+          int ioff = getOff (jloc2); 
+          int icnt = getCnt (jloc2); 
+          T t = 0;
+          for (int jj = 0; jj < icnt; jj++)
+            t += v2e (ioff+jj);
+          v2 (jloc2) = t / double (icnt);
+        } 
+    } 
+
+  return pgp2;
+}
+
+#define DEF(T) \
+template atlas::FieldSet interpolationAimpl::interpolate<T>  (const atlas::FieldSet &) const; 
+
+DEF (double);
+
+
+interpolationAimpl * interpolationA__new 
+  (const atlas::grid::DistributionImpl * dist1, const atlas::functionspace::detail::StructuredColumns * fs1,
+   const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2)
+{
+  interpolationAimpl * intA = new interpolationAimpl
+  (atlas::grid::Distribution (dist1), atlas::functionspace::StructuredColumns (fs1), 
+   atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2));
+  return intA;
+}
+
+atlas::field::FieldSetImpl * interpolationA__interpolate 
+(interpolationAimpl * This , atlas::field::FieldSetImpl * pgp1)
+{
+  atlas::FieldSet pgp2 = This->interpolate<double> (atlas::FieldSet (pgp1));
+  atlas::field::FieldSetImpl * pgp2_ = pgp2.get ();
+  pgp2_->attach ();
+  return pgp2_;
 }
 

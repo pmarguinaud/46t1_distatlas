@@ -203,7 +203,7 @@ if(0){
   FieldSet lonlat1 = getLonLat (fs1);
   FieldSet lonlat2 = getLonLat (fs2);
 
-  FieldSet lonlat2e = intA.shuffle (lonlat1);
+  FieldSet lonlat2e = intA.shuffle<double> (lonlat1);
 
   {
     auto lon2  = array::make_view<double,1> (lonlat2 [0]);
@@ -229,7 +229,7 @@ if(0){
   FieldSet jglo1 = getJGlo (fs1);
   FieldSet jglo2 = getJGlo (fs2);
 
-  FieldSet jglo2e = intA.shuffle (jglo1);
+  FieldSet jglo2e = intA.shuffle<double> (jglo1);
 
   {
     auto v2  = array::make_view<double,1> (jglo2 [0]);

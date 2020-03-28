@@ -30,6 +30,15 @@ public:
     INE = -0 
   };
 
+  int getCnt (int jloc2) const
+  {
+    return 4;
+  }
+
+  int getOff (int jloc2) const
+  {
+    return 4 * jloc2;
+  }
 
 private:
 
@@ -63,7 +72,6 @@ private:
   std::vector<recv_t> yl_recv;
   std::vector<send_t> yl_send;
   
-  // Should be const
   const atlas::StructuredGrid grid1;
   const atlas::StructuredGrid grid2;
   const atlas::grid::Distribution dist1;
@@ -104,6 +112,15 @@ public:
     return get ()->interpolate<T> (pgp1);
   }
 
+  int getCnt (int jloc2) const
+  {
+    return get ()->getCnt (jloc2);
+  }
+
+  int getOff (int jloc2) const
+  {
+    return get ()->getOff (jloc2);
+  }
 };
 
 

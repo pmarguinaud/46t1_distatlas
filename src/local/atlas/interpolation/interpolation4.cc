@@ -551,8 +551,7 @@ interpolation4impl::create_weights ()
 }
 
 
-template <typename T>
-atlas::FieldSet
+template <typename T> atlas::FieldSet
 interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
 {
   atlas::FieldSet pgp2;

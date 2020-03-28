@@ -7,15 +7,19 @@
 
 #include <vector>
 
-class interpolationA
+class interpolationAimpl
 {
 public:
 
-  interpolationA () = default;
-  interpolationA (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
-                  const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
+  interpolationAimpl () = default;
+  interpolationAimpl (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
+                      const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
 
+  template <typename T>
   atlas::FieldSet shuffle (const atlas::FieldSet &) const;
+
+  template <typename T> atlas::FieldSet
+  interpolate (const atlas::FieldSet &) const;
 
   int getCnt (int jloc2) const
   {
@@ -66,5 +70,58 @@ private:
   };
 
   std::vector<loc2cntoff_t> desc; // Size = number of points of grid #2 on this task
+
+  const atlas::StructuredGrid grid1;
+  const atlas::StructuredGrid grid2;
+  const atlas::grid::Distribution dist1;
+  const atlas::grid::Distribution dist2;
+
+  const atlas::functionspace::StructuredColumns fs1;
+  const atlas::functionspace::StructuredColumns fs2;
+
+};
+
+
+class interpolationA : public atlas::util::ObjectHandle<interpolationAimpl>
+{
+public:
+  interpolationA () = default;
+
+  interpolationA 
+  (const atlas::grid::Distribution & dist1, const atlas::functionspace::StructuredColumns & fs1,
+   const atlas::grid::Distribution & dist2, const atlas::functionspace::StructuredColumns & fs2)
+   : Handle::Handle (new interpolationAimpl (dist1, fs1, dist2, fs2))
+  {
+  }
+
+  template <typename T> atlas::FieldSet
+  shuffle (const atlas::FieldSet & pgp1) const
+  {
+    return get ()->shuffle<T> (pgp1);
+  }
+
+  int getCnt (int jloc2) const
+  {
+    return get ()->getCnt (jloc2);
+  }
+
+  int getOff (int jloc2) const
+  {
+    return get ()->getOff (jloc2);
+  }
+
+  template <typename T> atlas::FieldSet
+  interpolate (const atlas::FieldSet & pgp1) const
+  {
+    return get ()->interpolate<T> (pgp1);
+  }
+};
+
+extern "C"
+{
+interpolationAimpl * interpolationA__new 
+  (const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
+   const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *);
+atlas::field::FieldSetImpl * interpolationA__interpolate (interpolationAimpl *, atlas::field::FieldSetImpl *);
 };
 

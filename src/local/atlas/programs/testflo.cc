@@ -179,13 +179,15 @@ getXYZ (const functionspace::StructuredColumns & fs)
   return xyz;
 }
 
-class shuffle_t
+class interpolationA
 {
 public:
 
-  shuffle_t () = default;
-  shuffle_t (const grid::Distribution &, const functionspace::StructuredColumns &,
-             const grid::Distribution &, const functionspace::StructuredColumns &);
+  interpolationA () = default;
+  interpolationA (const grid::Distribution &, const functionspace::StructuredColumns &,
+                  const grid::Distribution &, const functionspace::StructuredColumns &);
+
+  FieldSet shuffle (const FieldSet &) const;
 
   size_t isize_recv;
   size_t isize_send;
@@ -228,7 +230,7 @@ public:
 };
 
 
-shuffle_t::shuffle_t (const grid::Distribution & dist1, const functionspace::StructuredColumns & fs1,
+interpolationA::interpolationA (const grid::Distribution & dist1, const functionspace::StructuredColumns & fs1,
                       const grid::Distribution & dist2, const functionspace::StructuredColumns & fs2)
 {
 
@@ -415,7 +417,7 @@ shuffle_t::shuffle_t (const grid::Distribution & dist1, const functionspace::Str
 
   isize_send = 
     std::accumulate (std::begin (yl_send), std::end (yl_send),
-                     0, [] (int a, const shuffle_t::send_t & s)
+                     0, [] (int a, const interpolationA::send_t & s)
                      {
                        return a + s.isize;
                      });
@@ -492,7 +494,7 @@ shuffle_t::shuffle_t (const grid::Distribution & dist1, const functionspace::Str
 
   // Total number of points received by this proc
   isize_recv = std::accumulate (std::begin (yl_recv), std::end (yl_recv), 
-                                0, [] (int a, const shuffle_t::recv_t & r) { return a + r.isize; });
+                                0, [] (int a, const interpolationA::recv_t & r) { return a + r.isize; });
 
   desc.resize (isize_recv);
 
@@ -576,8 +578,7 @@ shuffle_t::shuffle_t (const grid::Distribution & dist1, const functionspace::Str
 
 }
 
-FieldSet
-do_shuffle (const shuffle_t & shuffle, const FieldSet & pgp1)
+FieldSet interpolationA::shuffle (const FieldSet & pgp1) const
 {
   FieldSet pgp2e;
 
@@ -585,27 +586,27 @@ do_shuffle (const shuffle_t & shuffle, const FieldSet & pgp1)
   const int myproc = comm.rank ();
 
   const int infld = pgp1.size ();
-  const int insend = shuffle.yl_send.size ();
-  const int inrecv = shuffle.yl_recv.size ();
+  const int insend = yl_send.size ();
+  const int inrecv = yl_recv.size ();
 
   // Create fields in pgp2e
 
   for (int jfld = 0; jfld < infld; jfld++)
     pgp2e.add (atlas::Field (pgp1[jfld].name (),
                              atlas::array::DataType::kind<double> (), 
-                             atlas::array::make_shape (shuffle.isize_recv)));
+                             atlas::array::make_shape (isize_recv)));
 
   std::vector<eckit::mpi::Request> 
                      reqsend (insend), 
                      reqrecv (inrecv);
 
-  std::vector<double> zbufr (infld * shuffle.isize_recv);
-  std::vector<double> zbufs (infld * shuffle.isize_send);
+  std::vector<double> zbufr (infld * isize_recv);
+  std::vector<double> zbufs (infld * isize_send);
 
   for (int ii = 0, ioffr = 0; ii < inrecv; ii++)
     {
-      int iproc = shuffle.yl_recv[ii].iproc;
-      size_t isize = shuffle.yl_recv[ii].isize;
+      int iproc = yl_recv[ii].iproc;
+      size_t isize = yl_recv[ii].isize;
       reqrecv[ii] = comm.iReceive (&zbufr[ioffr], isize * infld, iproc, 101);
       ioffr = ioffr + infld * isize;
     }
@@ -616,7 +617,7 @@ do_shuffle (const shuffle_t & shuffle, const FieldSet & pgp1)
 
   for (int ii = 0, ioffs = 0; ii < insend; ii++)
     {
-      size_t isize = shuffle.yl_send[ii].isize;
+      size_t isize = yl_send[ii].isize;
       ioffs_all[ii] = ioffs;
       ioffs += infld * isize;
     }
@@ -624,15 +625,15 @@ do_shuffle (const shuffle_t & shuffle, const FieldSet & pgp1)
   for (int ii = 0; ii < insend; ii++)
     {
       size_t ioffs = ioffs_all[ii];
-      int iproc = shuffle.yl_send[ii].iproc;
-      size_t isize = shuffle.yl_send[ii].isize;
+      int iproc = yl_send[ii].iproc;
+      size_t isize = yl_send[ii].isize;
 
 // TODO: Use OpenMP
       for (int jfld = 0; jfld < infld; jfld++)
         {
           auto v = atlas::array::make_view<double,1> (pgp1[jfld]);
           for (int jj = 0; jj < isize; jj++)
-            zbufs[ioffs+jfld*isize+jj] = v (shuffle.yl_send[ii].iloc[jj]);
+            zbufs[ioffs+jfld*isize+jj] = v (yl_send[ii].iloc[jj]);
         }
       reqsend[ii] = comm.iSend (&zbufs[ioffs], infld * isize, iproc, 101);
     }
@@ -646,7 +647,7 @@ do_shuffle (const shuffle_t & shuffle, const FieldSet & pgp1)
   for (int ii = 0, ioffr = 0; ii < inrecv; ii++)
     {
       ioffr_all[ii] = ioffr;
-      size_t isize = shuffle.yl_recv[ii].isize;
+      size_t isize = yl_recv[ii].isize;
       ioffr += isize;
     }
 
@@ -654,13 +655,13 @@ do_shuffle (const shuffle_t & shuffle, const FieldSet & pgp1)
     {
 // TODO : Use OpenMP
       size_t ioffr = ioffr_all[ii];
-      size_t isize = shuffle.yl_recv[ii].isize;
+      size_t isize = yl_recv[ii].isize;
 
       for (int jfld = 0; jfld < infld; jfld++)
         {
           auto v = atlas::array::make_view<double,1> (pgp2e[jfld]);
           for (int jj = 0; jj < isize; jj++)
-            v (shuffle.isort[ioffr+jj]) = zbufr[ioffr*infld+jfld*isize+jj];
+            v (isort[ioffr+jj]) = zbufr[ioffr*infld+jfld*isize+jj];
         }
     }
 
@@ -721,12 +722,12 @@ if(0){
   functionspace::StructuredColumns fs2 {grid2, dist2};
 
 
-  shuffle_t shuffle (dist1, fs1, dist2, fs2);
+  interpolationA intA (dist1, fs1, dist2, fs2);
 
   FieldSet lonlat1 = getLonLat (fs1);
   FieldSet lonlat2 = getLonLat (fs2);
 
-  FieldSet lonlat2e = do_shuffle (shuffle, lonlat1);
+  FieldSet lonlat2e = intA.shuffle (lonlat1);
 
   {
     auto lon2  = array::make_view<double,1> (lonlat2 [0]);
@@ -736,12 +737,12 @@ if(0){
 
     for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
       {
-        int icnt = shuffle.desc[jloc2].icnt;
+        int icnt = intA.desc[jloc2].icnt;
         printf (" %8d > (%12.4f, %12.4f) < %8d\n", jloc2, lon2[jloc2], lat2[jloc2], icnt);
 
         for (int jj = 0; jj < icnt; jj++)
           {
-            int ioff = shuffle.desc[jloc2].ioff;
+            int ioff = intA.desc[jloc2].ioff;
             printf ("         -> (%12.4f, %12.4f) %12.4f \n", 
                     lon2e[ioff+jj], lat2e[ioff+jj], distlonlat (lon2[jloc2], lat2[jloc2],
                     lon2e[ioff+jj], lat2e[ioff+jj]));
@@ -752,7 +753,7 @@ if(0){
   FieldSet jglo1 = getJGlo (fs1);
   FieldSet jglo2 = getJGlo (fs2);
 
-  FieldSet jglo2e = do_shuffle (shuffle, jglo1);
+  FieldSet jglo2e = intA.shuffle (jglo1);
 
   {
     auto v2  = array::make_view<double,1> (jglo2 [0]);
@@ -761,12 +762,12 @@ if(0){
 if(0)
     for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
       {
-        int icnt = shuffle.desc[jloc2].icnt;
+        int icnt = intA.desc[jloc2].icnt;
         printf (" %8d > %8d\n", jloc2, int (v2[jloc2]));
 
         for (int jj = 0; jj < icnt; jj++)
           {
-            int ioff = shuffle.desc[jloc2].ioff;
+            int ioff = intA.desc[jloc2].ioff;
             printf ("         -> %8d\n", int (v2e[ioff+jj]));
           }
       } 

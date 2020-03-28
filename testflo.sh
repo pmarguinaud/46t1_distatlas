@@ -11,13 +11,16 @@ rm bin/TESTFLO stdeo.0.TESTFLO
 set -e
 CXX="/home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/INTELMPI184274MT/mpic++ /home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/I185274/icpc -std=c++11"
 
+$CXX -g -c -I/home/gmap/mrpm/marguina/atlas-intel/install/include -Isrc/local/atlas/include -o src/local/atlas/interpolation/interpolationA.o src/local/atlas/interpolation/interpolationA.cc
+
 $CXX -g -o bin/TESTFLO src/local/atlas/programs/testflo.cc \
-  src/local/atlas/interpolation/interpolation4.o \
+  src/local/atlas/interpolation/interpolationA.o \
   -I/home/gmap/mrpm/marguina/atlas-intel/install/include \
   -Isrc/local/atlas/include \
   -L/home/gmap/mrpm/marguina/atlas-intel/install/lib -Wl,-rpath,/home/gmap/mrpm/marguina/atlas-intel/install/lib \
   -latlas -leckit -leckit_geometry -leckit_mpi
 set +e
+
 
 
 JOBID=$(perl -e ' print(time ())')

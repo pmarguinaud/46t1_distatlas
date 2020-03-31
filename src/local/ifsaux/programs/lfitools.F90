@@ -109,8 +109,8 @@ ELSE
       CALL FACONVGRIB
     CASE ('fadiff')
       CALL FADIFF
-    CASE ('fastat')
-      CALL FASTAT
+!   CASE ('fastat')
+!     CALL FASTAT
 !   CASE ('lfitestread')
 !     CALL LFITESTREAD
 !   CASE ('lfitestwrite')

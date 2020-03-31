@@ -469,10 +469,13 @@ if (k >= pgp1[jfld].size ()) abort ();
   
   for (int jfld = 0; jfld < infld; jfld++)
     {
-      pgp2e.add (atlas::Field (pgp1[jfld].name (),
+      auto f1  = pgp1[jfld];
+      auto f2e = atlas::Field (f1.name (),
                                atlas::array::DataType::kind<T> (), 
-                               atlas::array::make_shape (isize_recv)));
-      auto v = atlas::array::make_view<T,1> (pgp2e[jfld]);
+                               atlas::array::make_shape (isize_recv));
+      f2e.metadata () = f1.metadata ();
+      pgp2e.add (f2e);
+      auto v = atlas::array::make_view<T,1> (f2e);
       for (int k = 0; k < yl_recv[0].ioff; k++)
         v (k) = 0;
     }
@@ -566,9 +569,14 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
   auto pgp2e = shuffle<T> (pgp1);
   
   for (int jfld = 0; jfld < infld; jfld++)
-    pgp2.add (atlas::Field (pgp1[jfld].name (),
-              atlas::array::DataType::kind<T> (), 
-              atlas::array::make_shape (size2)));
+    {
+      auto f1 = pgp1[jfld];
+      auto f2 = atlas::Field (f1.name (),
+                              atlas::array::DataType::kind<T> (), 
+                              atlas::array::make_shape (size2));
+      f2.metadata () = f1.metadata ();
+      pgp2.add (f2);
+    }
 
   for (int jfld = 0; jfld < infld; jfld++)
     {

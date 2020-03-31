@@ -418,9 +418,14 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
   // Create fields in pgp2e
 
   for (int jfld = 0; jfld < infld; jfld++)
-    pgp2e.add (atlas::Field (pgp1[jfld].name (),
-                             atlas::array::DataType::kind<T> (), 
-                             atlas::array::make_shape (isize_recv)));
+    {
+      auto f1  = pgp1[jfld];
+      auto f2e = atlas::Field (f1.name (),
+                               atlas::array::DataType::kind<T> (), 
+                               atlas::array::make_shape (isize_recv));
+      f2e.metadata () = f1.metadata ();
+      pgp2e.add (f2e);
+    }
 
   std::vector<eckit::mpi::Request> 
                      reqsend (insend), 
@@ -508,9 +513,14 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
   int infld = pgp1.size ();
 
   for (int jfld = 0; jfld < infld; jfld++)
-    pgp2.add (atlas::Field (pgp1[jfld].name (),
-              atlas::array::DataType::kind<T> (), 
-              atlas::array::make_shape (size2)));
+    {
+      auto f1 = pgp1[jfld];
+      auto f2 = atlas::Field (f1.name (),
+                              atlas::array::DataType::kind<T> (), 
+                              atlas::array::make_shape (size2));
+      f2.metadata () = f1.metadata ();
+      pgp2.add (f2);
+    }
 
   for (int jfld = 0; jfld < infld; jfld++)
     {

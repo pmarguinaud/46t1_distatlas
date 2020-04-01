@@ -67,6 +67,7 @@ private:
 
   size_t isize_recv;
   size_t isize_send;
+  size_t iskip;
 
   std::vector<int> isort;
   std::vector<recv_t> yl_recv;

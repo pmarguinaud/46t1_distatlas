@@ -107,6 +107,13 @@ interpolation4impl::interpolation4impl
   auto i2 = atlas::array::make_view<int,1> (fs2.index_i ());
   auto j2 = atlas::array::make_view<int,1> (fs2.index_j ());
 
+  bool glob  = grid1.domain ().global ();
+
+  bool yincr = yspc1.front () < yspc1.back ();
+  auto lt = [yincr] (const double a, const double b) { return yincr ? a <  b : a >  b; };
+  auto le = [yincr] (const double a, const double b) { return yincr ? a <= b : a >= b; };
+  auto gt = [yincr] (const double a, const double b) { return yincr ? a >  b : a <  b; };
+
 // TODO: Use OpenMP on jloc2
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
     {
@@ -116,10 +123,9 @@ interpolation4impl::interpolation4impl
       int iny1 = grid1.ny (), iy1a, iy1b;
 
       // Search along Y axis
-// TODO : increasing Y coordinate
-      if (xy1.y () > yspc1.front ())
+      if (lt (xy1.y (), yspc1.front ()))
         iy1a = -1;
-      else if (xy1.y () < yspc1.back ())
+      else if (gt (xy1.y (), yspc1.back ()))
         iy1a = iny1-1;
       else
         {
@@ -129,7 +135,7 @@ interpolation4impl::interpolation4impl
             {
               // Dichotomy
               int iy1m = (iy1a + iy1b) / 2;
-              if ((yspc1[iy1a] >= xy1.y ()) && (xy1.y () >= yspc1[iy1m]))
+              if (le (yspc1[iy1a], xy1.y ()) && le (xy1.y (), yspc1[iy1m]))
                 iy1b = iy1m;
               else
                 iy1a = iy1m;
@@ -142,41 +148,38 @@ interpolation4impl::interpolation4impl
 
       // Search along X axis
 
-      int ix1a, ix1b;
+      auto x1iy1_to_iwie = [&] (double x1, int iy1, atlas::gidx_t & iw, atlas::gidx_t & ie)
+      {
+        int ix1a = -1, ix1b = -1;
+        if (iy1 > -1)
+          {
+            int inx1 = xspc1.nx ()[iy1];
+            double dx = inx1 * xspc1.dx ()[iy1];
+            double xmin = xspc1.xmin ()[iy1];
+            ix1a = floor (inx1 * (xy1.x () - xmin) / dx); 
+            ix1b = ix1a + 1;
+            if (glob)
+              {
+                ix1a = modulo (ix1a, inx1);
+                ix1b = modulo (ix1b, inx1);
+              }
+            else
+              {
+                if ((ix1a < 0) || (ix1a >= inx1)) ix1a = -1;
+                if ((ix1b < 0) || (ix1b >= inx1)) ix1b = -1;
+              }
+          }
+        iw = (iy1 >= 0) && (ix1a >= 0) ? grid1.ij2gidx (ix1a, iy1) : -1;
+        ie = (iy1 >= 0) && (ix1b >= 0) ? grid1.ij2gidx (ix1b, iy1) : -1;
+      };
 
-      if (iy1a > -1)
-        {
-// TODO : handle non global domains (grid1.domain.global () == false)
-// TODO : handle shifted longitudes ??
-          int inx1 = xspc1.nx ()[iy1a];
-          double dx = inx1 * xspc1.dx ()[iy1a];
-          int ix1a = modulo (int (inx1 * xy1.x () / dx), inx1);
-          int ix1b = modulo (ix1a + 1, inx1);
-          iglo1all[4 * (jloc2 + 1) + INW - 1] = grid1.ij2gidx (ix1a, iy1a);
-          iglo1all[4 * (jloc2 + 1) + INE - 1] = grid1.ij2gidx (ix1b, iy1a);
-        }
-      else
-        {
-          // No points were found
-          iglo1all[4 * (jloc2 + 1) + INW - 1] = -1;
-          iglo1all[4 * (jloc2 + 1) + INE - 1] = -1;
-        }
-      
-      if (iy1b < iny1)
-        {
-          int inx1 = xspc1.nx ()[iy1b];
-          double dx = inx1 * xspc1.dx ()[iy1b];
-          int ix1a = modulo (int (inx1 * xy1.x () / dx), inx1);
-          int ix1b = modulo (ix1a + 1, inx1);
-          iglo1all[4 * (jloc2 + 1) + ISW - 1] = grid1.ij2gidx (ix1a, iy1b);
-          iglo1all[4 * (jloc2 + 1) + ISE - 1] = grid1.ij2gidx (ix1b, iy1b);
-        }
-      else
-        {
-          // No points were found
-          iglo1all[4 * (jloc2 + 1) + ISW - 1] = -1;
-          iglo1all[4 * (jloc2 + 1) + ISE - 1] = -1;
-        }
+      x1iy1_to_iwie (xy1.x (), iy1a, 
+                     iglo1all[4 * (jloc2 + 1) + INW - 1], 
+                     iglo1all[4 * (jloc2 + 1) + INE - 1]);
+
+      x1iy1_to_iwie (xy1.x (), iy1b, 
+                     iglo1all[4 * (jloc2 + 1) + ISW - 1], 
+                     iglo1all[4 * (jloc2 + 1) + ISE - 1]);
 
     }
 
@@ -259,7 +262,7 @@ interpolation4impl::interpolation4impl
 
   std::vector<int> isendcnt (nproc), irecvcnt (nproc);
 
-  int iskip = 0; // Number of points not found; they are supposed to be at the begining of the list
+  iskip = 0; // Number of points not found; they are supposed to be at the begining of the list
 
   std::fill (std::begin (irecvcnt), std::end (irecvcnt), 0);
 
@@ -269,7 +272,7 @@ interpolation4impl::interpolation4impl
       if (iproc > -1) 
         irecvcnt[iproc] = irecvcnt[iproc] + 1;
       else
-        iskip = iskip + 1;
+        iskip++;
     }
 
   // Copy indices to contiguous array for sending
@@ -305,7 +308,8 @@ interpolation4impl::interpolation4impl
    
   // Send offsets
 
-  yl_send[0].ioff = 0;
+  if (insend > 0)
+    yl_send[0].ioff = 0;
   for (int ii = 1; ii < insend; ii++)
     yl_send[ii].ioff = yl_send[ii-1].ioff + yl_send[ii-1].icnt;
 
@@ -322,7 +326,8 @@ interpolation4impl::interpolation4impl
 
   // Recv offsets
 
-  yl_recv[0].ioff = iskip;
+  if (inrecv > 0)
+    yl_recv[0].ioff = iskip;
   for (int ii = 1; ii < inrecv; ii++)
     yl_recv[ii].ioff = yl_recv[ii-1].ioff + yl_recv[ii-1].icnt;
 
@@ -387,11 +392,12 @@ interpolation4impl::interpolation4impl
   for (int i = 0; i < inrecv; i++)
     comm.wait (reqrecv[i]);
 
-  isize_recv = yl_recv[0].ioff;
+  if (inrecv > 0)
+    isize_recv = yl_recv[0].ioff;
   for (const auto & r : yl_recv)
     isize_recv += r.icnt;
 
-  isize_send = yl_send[0].ioff;
+  isize_send = insend > 0 ? yl_send[0].ioff : 0;
   for (const auto & r : yl_send)
     isize_send += r.icnt;
 
@@ -434,7 +440,7 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
     }
 
   
-  std::fill (std::begin (zbufr), std::begin (zbufr) + yl_recv[0].ioff, 0);
+  std::fill (std::begin (zbufr), std::begin (zbufr) + iskip, 0);
 
   // Post receives
 
@@ -524,21 +530,24 @@ interpolation4impl::create_weights ()
     {
       // The weight is the inverse of the distance in radian between the target point 
       // and the points used for interpolation
+
+
       int c[4] = {ISW, ISE, INW, INE};
       for (int j = 0; j < 4; j++)
         {
           int jj = c[j];
           int jind1 = isort[4*(jloc2+1)+jj-1];
           // affect a zero value when there is no point
-          if (jind1 < 0)
+          if (jind1 < iskip)
             weights4.values[4*(jloc2+1)+jj-1] = 0;
           else 
             // Prevent division by zero
-            weights4.values[4*(jloc2+1)+jj-1] = 1.0 / std::max (1.0E-10, 
+            weights4.values[4*(jloc2+1)+jj-1] = 1.0 / acos (std::max (1.0E-10, 
                        // Scalar product
                        x2[jloc2] * x2e[jind1] + 
                        y2[jloc2] * y2e[jind1] + 
-                       z2[jloc2] * z2e[jind1]);
+                       z2[jloc2] * z2e[jind1]));
+
         }
 
       // Rebalance weights so that their sum be 1
@@ -549,7 +558,6 @@ interpolation4impl::create_weights ()
 
       for (int j = 0; j < 4; j++)
         weights4.values[4*(jloc2+1)+c[j]-1] /= s;
-  
     }
 }
 

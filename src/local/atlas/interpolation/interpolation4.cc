@@ -542,11 +542,11 @@ interpolation4impl::create_weights ()
             weights4.values[4*(jloc2+1)+jj-1] = 0;
           else 
             // Prevent division by zero
-            weights4.values[4*(jloc2+1)+jj-1] = 1.0 / acos (std::max (1.0E-10, 
+            weights4.values[4*(jloc2+1)+jj-1] = 1.0 / std::max (1.0E-10, 
                        // Scalar product
-                       x2[jloc2] * x2e[jind1] + 
-                       y2[jloc2] * y2e[jind1] + 
-                       z2[jloc2] * z2e[jind1]));
+                       acos (x2[jloc2] * x2e[jind1] + 
+                             y2[jloc2] * y2e[jind1] + 
+                             z2[jloc2] * z2e[jind1]));
 
         }
 

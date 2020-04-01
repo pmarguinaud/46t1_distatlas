@@ -18,11 +18,11 @@ PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid2 fort.4.t32 --dist2 equal_regions
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 S80x40 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.t32 --dist1 equal_regions --grid2 fort.4.64x64 --dist2 checkerboard
-#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.64x64 --dist1 checkerboard --grid2 fort.4.32x32 --dist2 checkerboard
-#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L80x40 --dist1 checkerboard --grid2 fort.4.32x32 --dist2 checkerboard
+ ~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.64x64 --dist1 checkerboard --grid2 fort.4.32x32 --dist2 checkerboard --write1
+#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L80x40 --dist1 checkerboard --grid2 fort.4.32x32 --dist2 checkerboard 
 
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.3x3 --dist1 checkerboard --grid2 fort.4.32x32 --dist2 checkerboard
- ~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 1 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.t32 --dist1 equal_regions --grid2 fort.4.32x32 --dist2 checkerboard
+#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 1 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.t32 --dist1 equal_regions --grid2 fort.4.32x32 --dist2 checkerboard
 
 
 

@@ -25,13 +25,12 @@ PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 X80x40 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions
 
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L160x80 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions --interpA
- ~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 1 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L40x20 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions --interpA
+#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L40x20 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions --interpA
 
 
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 2 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L40x20 --dist1 checkerboard --grid2 fort.4.64x64 --dist2 checkerboard --interpA
-#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 N160 --dist1 equal_regions --grid2 fort.4.64x64 --dist2 checkerboard --interpA --write1
+ ~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 N320 --dist1 equal_regions --grid2 fort.4.64x64 --dist2 checkerboard --interpA --write1
 
-exit
 
 ls XYZ1.fa.* > /dev/null 2>&1
 

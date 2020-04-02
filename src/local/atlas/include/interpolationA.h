@@ -7,15 +7,13 @@
 
 #include <vector>
 
-class interpolationAimpl
+class interpolationAimpl : public atlas::util::Object
 {
 public:
 
   interpolationAimpl () = default;
   interpolationAimpl (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
                       const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
-
-  ~interpolationAimpl ();
 
   template <typename T>
   atlas::FieldSet shuffle (const atlas::FieldSet &) const;

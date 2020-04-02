@@ -7,7 +7,7 @@
 
 #include <vector>
 
-class interpolation4impl
+class interpolation4impl : public atlas::util::Object
 {
 public:
   

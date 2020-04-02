@@ -59,11 +59,6 @@ interpolationAimpl::interpolationAimpl
  const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
 : dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
 {
-
-  printf (" this = 0x%llx\n", this);
-
-  return;
-
   size_t size1 = fs1.sizeOwned ();
   size_t size2 = fs2.sizeOwned ();
 
@@ -225,7 +220,6 @@ interpolationAimpl::interpolationAimpl
   };
 
   std::vector<exch_t> yl_exch_recv (inrecv), yl_exch_send (insend);
-  return;
 
   // Post receives
 
@@ -252,8 +246,6 @@ interpolationAimpl::interpolationAimpl
 
   yl_send.resize (insend);
 
-  return;
-
   insend = 0;
   for (int iproc = 0; iproc < nproc; iproc++)
     if (isendcnt[iproc])
@@ -269,10 +261,6 @@ interpolationAimpl::interpolationAimpl
         for (int i = 0; i < isendcnt[iproc]; i++)
           {
             int jind1 = iskip + isendoff[iproc] + i;
-if (jind1 >= prcglo1.size ())
-  abort ();
-if (2*i+1 >= yl_exch_send[insend].iglo1iglo2.size ()) 
-  abort ();
             yl_send[insend].iloc[i]                = prcglo1[jind1].iloc1;
             yl_exch_send[insend].iglo1iglo2[2*i+0] = prcglo1[jind1].iglo1;
             yl_exch_send[insend].iglo1iglo2[2*i+1] = prcglo1[jind1].iglo2;
@@ -448,13 +436,6 @@ if (2*i+1 >= yl_exch_send[insend].iglo1iglo2.size ())
 
 }
 
-
-interpolationAimpl::~interpolationAimpl ()
-{
-  printf ("%s:%d\n", __FILE__, __LINE__);
-  printf (" this = 0x%llx\n", this);
-}
-
 template <typename T>
 atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
 {
@@ -612,12 +593,6 @@ interpolationAimpl * interpolationA__new
   interpolationAimpl * intA = new interpolationAimpl
   (atlas::grid::Distribution (dist1), atlas::functionspace::StructuredColumns (fs1), 
    atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2));
-  printf ("%s:%d, this = 0x%llx\n", __FILE__, __LINE__, intA);
-
-  delete intA;
-
-  exit (0);
-
   return intA;
 }
 

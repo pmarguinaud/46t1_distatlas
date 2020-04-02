@@ -15,6 +15,8 @@ public:
   interpolationAimpl (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
                       const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
 
+  ~interpolationAimpl ();
+
   template <typename T>
   atlas::FieldSet shuffle (const atlas::FieldSet &) const;
 
@@ -31,9 +33,16 @@ public:
     return desc[jloc2].ioff;
   }
 
+  int getMissing () const
+  {
+    return isize_miss;
+  }
+
 private:
-  size_t isize_recv;
-  size_t isize_send;
+  size_t isize_recv = 0;
+  size_t isize_send = 0;
+  size_t isize_miss = 0;
+  bool verbose = false;
 
   struct recv_t
   {

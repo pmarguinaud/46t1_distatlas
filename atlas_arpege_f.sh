@@ -20,14 +20,18 @@ PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.t32 --dist1 equal_regions --grid2 fort.4.64x64 --dist2 checkerboard
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.64x64 --dist1 checkerboard --grid2 fort.4.32x32 --dist2 checkerboard --write1
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L80x40 --dist1 checkerboard --grid2 fort.4.32x32 --dist2 checkerboard 
-
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.3x3 --dist1 checkerboard --grid2 fort.4.32x32 --dist2 checkerboard
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 1 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.t32 --dist1 equal_regions --grid2 fort.4.32x32 --dist2 checkerboard
+#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 X80x40 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions
+
+#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L160x80 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions --interpA
+ ~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 1 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L40x20 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions --interpA
 
 
- ~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 1 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 X80x40 --dist1 checkerboard --grid2 fort.4.t32 --dist2 equal_regions
+#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 2 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L40x20 --dist1 checkerboard --grid2 fort.4.64x64 --dist2 checkerboard --interpA
+#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 N160 --dist1 equal_regions --grid2 fort.4.64x64 --dist2 checkerboard --interpA --write1
 
-
+exit
 
 ls XYZ1.fa.* > /dev/null 2>&1
 
@@ -37,8 +41,22 @@ $PACK/bin/lfitools lfi_alt_index --lfi-file-in XYZ1.fa.*  --lfi-file-out XYZ1.fa
 $PACK/bin/lfitools lfi_alt_pack --lfi-file-in XYZ1.fa --lfi-file-out XYZ1.pack.fa
 fi
 
-$PACK/bin/lfitools lfi_alt_index --lfi-file-in XYZ2I.fa.*  --lfi-file-out XYZ2I.fa > index.eo 2>&1
-$PACK/bin/lfitools lfi_alt_pack --lfi-file-in XYZ2I.fa --lfi-file-out XYZ2I.pack.fa
+ls XYZ2I4* > /dev/null 2>&1
+
+if [ $? -eq 0 ]
+then
+$PACK/bin/lfitools lfi_alt_index --lfi-file-in XYZ2I4.fa.*  --lfi-file-out XYZ2I4.fa > index.eo 2>&1
+$PACK/bin/lfitools lfi_alt_pack --lfi-file-in XYZ2I4.fa --lfi-file-out XYZ2I4.pack.fa
+fi
+
+
+ls XYZ2IA* > /dev/null 2>&1
+
+if [ $? -eq 0 ]
+then
+$PACK/bin/lfitools lfi_alt_index --lfi-file-in XYZ2IA.fa.*  --lfi-file-out XYZ2IA.fa > index.eo 2>&1
+$PACK/bin/lfitools lfi_alt_pack --lfi-file-in XYZ2IA.fa --lfi-file-out XYZ2IA.pack.fa
+fi
 
 
 

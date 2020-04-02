@@ -154,9 +154,9 @@ interpolation4impl::interpolation4impl
         if (iy1 > -1)
           {
             int inx1 = xspc1.nx ()[iy1];
-            double dx = inx1 * xspc1.dx ()[iy1];
+            double dx = xspc1.dx ()[iy1];
             double xmin = xspc1.xmin ()[iy1];
-            ix1a = floor (inx1 * (xy1.x () - xmin) / dx); 
+            ix1a = floor ((xy1.x () - xmin) / dx); 
             ix1b = ix1a + 1;
             if (glob)
               {

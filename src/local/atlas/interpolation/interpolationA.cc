@@ -60,6 +60,10 @@ interpolationAimpl::interpolationAimpl
 : dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
 {
 
+  printf (" this = 0x%llx\n", this);
+
+  return;
+
   size_t size1 = fs1.sizeOwned ();
   size_t size2 = fs2.sizeOwned ();
 
@@ -86,6 +90,18 @@ interpolationAimpl::interpolationAimpl
 
   std::vector<prcglo_t> prcglo1 (size1);
 
+  bool glob  = grid2.domain ().global ();
+
+  bool yincr = yspc2.front () < yspc2.back ();
+  auto lt = [yincr] (const double a, const double b) { return yincr ? a <  b : a >  b; };
+  auto le = [yincr] (const double a, const double b) { return yincr ? a <= b : a >= b; };
+  auto gt = [yincr] (const double a, const double b) { return yincr ? a >  b : a <  b; };
+
+  int iny2 = grid2.ny ();
+
+  double dy2f = (yspc2[     1] - yspc2[     0]) / 2.0f;
+  double dy2b = (yspc2[iny2-1] - yspc2[iny2-2]) / 2.0f;
+
 
 // TODO : Use OpenMP on jloc1
   for (int jloc1 = 0; jloc1 < size1; jloc1++)
@@ -98,14 +114,19 @@ interpolationAimpl::interpolationAimpl
       atlas::gidx_t iglo1 = grid1.ij2gidx (i1 (jloc1)-1, j1 (jloc1)-1);
       atlas::PointXY xy2 = proj2.xy (lonlat1);
 
-      int iny2 = grid2.ny (), iy2;
+      int iy2 = -1;
 
-      // Search along Y axis: find nearest latitude
-// TODO : increasing Y coordinate
-      if (xy2.y () > yspc2.front ())
-        iy2 = 0;
-      else if (xy2.y () < yspc2.back ())
-        iy2 = iny2-1;
+      // Search along Y axis
+      if (lt (xy2.y (), yspc2[0]))
+        {
+          if (gt (xy2.y (), yspc2[0] - dy2f) || glob)
+            iy2 = 0;
+        }
+      else if (gt (xy2.y (), yspc2[iny2-1]))
+        {
+          if (lt (xy2.y (), yspc2[iny2-1] + dy2b) || glob)
+            iy2 = iny2-1;
+        }
       else
         {
           int iy2a = 0, iy2b = iny2-1;
@@ -113,7 +134,7 @@ interpolationAimpl::interpolationAimpl
             {
               // Dichotomy
               int iy2m = (iy2a + iy2b) / 2;
-              if ((yspc2[iy2a] >= xy2.y ()) && (xy2.y () >= yspc2[iy2m]))
+              if (le (yspc2[iy2a], xy2.y ()) && le (xy2.y (), yspc2[iy2m]))
                 iy2b = iy2m;
               else
                 iy2a = iy2m;
@@ -126,18 +147,31 @@ interpolationAimpl::interpolationAimpl
             iy2 = iy2b;
         }
        
-      // Find nearest longitude
 
-      int inx2 = grid2.nx (iy2), ix2;
+      // Search along X axis
+      
+      int ix2 = -1;
 
-// TODO : handle non global domains (grid1.domain.global () == false)
-// TODO : handle shifted longitudes ??
-      double dx = xspc2.dx ()[iy2];
-      ix2 = modulo (int (round (xy2.x () / dx)), inx2);
+      if (iy2 >= 0)
+        {
+          int inx2 = grid2.nx (iy2);
+          double dx = xspc2.dx ()[iy2];
+          double xmin = xspc2.xmin ()[iy2];
+          ix2 = round ((xy2.x () - xmin) / dx);
 
-      atlas::gidx_t iglo2 = grid2.ij2gidx (ix2, iy2);
-      int iprc2 = dist2.partition (iglo2);
+          if (glob)
+            {
+              ix2 = modulo (ix2, inx2);
+            }
+          else
+            {
+               if ((ix2 < 0) || (ix2 >= inx2)) ix2 = -1;
+            }
+        }
 
+      atlas::gidx_t iglo2 = (iy2 >= 0) && (ix2 >= 0) ? grid2.ij2gidx (ix2, iy2) : -1;
+
+      int iprc2 = iglo2 >= 0 ? dist2.partition (iglo2) : -1;
       
       prcglo1[jloc1].iglo1 = iglo1;
       prcglo1[jloc1].iglo2 = iglo2;
@@ -150,8 +184,12 @@ interpolationAimpl::interpolationAimpl
   // Compute & exchange send/recv counts
   std::vector<size_t> isendcnt (nproc, 0), irecvcnt (nproc), isendoff (nproc);
   
+  int iskip = 0; // Number of points on grid #1 that we will not use
   for (int jloc1 = 0; jloc1 < size1; jloc1++)
-    isendcnt[prcglo1[jloc1].iprc2]++;
+    if (prcglo1[jloc1].iprc2 >= 0)
+      isendcnt[prcglo1[jloc1].iprc2]++;
+    else
+      iskip++;
 
   isendoff[0] = 0;
   for (int iproc = 1; iproc < nproc; iproc++)
@@ -187,6 +225,7 @@ interpolationAimpl::interpolationAimpl
   };
 
   std::vector<exch_t> yl_exch_recv (inrecv), yl_exch_send (insend);
+  return;
 
   // Post receives
 
@@ -213,6 +252,8 @@ interpolationAimpl::interpolationAimpl
 
   yl_send.resize (insend);
 
+  return;
+
   insend = 0;
   for (int iproc = 0; iproc < nproc; iproc++)
     if (isendcnt[iproc])
@@ -227,8 +268,12 @@ interpolationAimpl::interpolationAimpl
         // List of points of grid #1 to send to iproc
         for (int i = 0; i < isendcnt[iproc]; i++)
           {
-            int jind1 = isendoff[iproc] + i;
-            yl_send[insend].iloc[i]        = prcglo1[jind1].iloc1;
+            int jind1 = iskip + isendoff[iproc] + i;
+if (jind1 >= prcglo1.size ())
+  abort ();
+if (2*i+1 >= yl_exch_send[insend].iglo1iglo2.size ()) 
+  abort ();
+            yl_send[insend].iloc[i]                = prcglo1[jind1].iloc1;
             yl_exch_send[insend].iglo1iglo2[2*i+0] = prcglo1[jind1].iglo1;
             yl_exch_send[insend].iglo1iglo2[2*i+1] = prcglo1[jind1].iglo2;
           }
@@ -238,6 +283,8 @@ interpolationAimpl::interpolationAimpl
                                      iproc, 101);
         insend++;
       }
+
+  prcglo1.clear ();
 
   isize_send = 
     std::accumulate (std::begin (yl_send), std::end (yl_send),
@@ -321,7 +368,7 @@ interpolationAimpl::interpolationAimpl
   isize_recv = std::accumulate (std::begin (yl_recv), std::end (yl_recv), 
                                 0, [] (int a, const interpolationAimpl::recv_t & r) { return a + r.isize; });
 
-  desc.resize (isize_recv);
+  desc.resize (fs2.sizeOwned ());
 
   for (auto & c : desc)
     c.icnt = 0;
@@ -387,20 +434,25 @@ interpolationAimpl::interpolationAimpl
 
   isort = reverse (iord);
 
-  int icount = 0;
-
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)  
-    {
-      if (desc[jloc2].icnt == 0)
-        {
-          icount++;
-          if (icount < 20)
-            std::cerr << " shuffle : no points were found for local " << jloc2 << std::endl;
-        }
-    }
-  if (icount > 0)
-    std::cerr << " shuffle : no points were for " << icount << " points " << std::endl;
+    if (desc[jloc2].icnt == 0)
+      {
+        isize_miss++;
+        if ((isize_miss < 20) && verbose)
+          std::cerr << " shuffle : no points were found for local " << jloc2 << std::endl;
+      }
 
+  if ((isize_miss > 0) && verbose)
+    std::cerr << " shuffle : no points were for " << isize_miss << " points " << std::endl;
+
+
+}
+
+
+interpolationAimpl::~interpolationAimpl ()
+{
+  printf ("%s:%d\n", __FILE__, __LINE__);
+  printf (" this = 0x%llx\n", this);
 }
 
 template <typename T>
@@ -530,10 +582,17 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
         {
           int ioff = getOff (jloc2); 
           int icnt = getCnt (jloc2); 
-          T t = 0;
-          for (int jj = 0; jj < icnt; jj++)
-            t += v2e (ioff+jj);
-          v2 (jloc2) = t / double (icnt);
+          if (icnt == 0)
+            {
+              v2 (jloc2) = 0.0; // TODO: Should be UNDEF
+            }
+          else
+            {
+              T t = 0;
+              for (int jj = 0; jj < icnt; jj++)
+                t += v2e (ioff+jj);
+              v2 (jloc2) = t / double (icnt);
+            }
         } 
     } 
 
@@ -553,6 +612,12 @@ interpolationAimpl * interpolationA__new
   interpolationAimpl * intA = new interpolationAimpl
   (atlas::grid::Distribution (dist1), atlas::functionspace::StructuredColumns (fs1), 
    atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2));
+  printf ("%s:%d, this = 0x%llx\n", __FILE__, __LINE__, intA);
+
+  delete intA;
+
+  exit (0);
+
   return intA;
 }
 

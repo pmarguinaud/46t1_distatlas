@@ -29,7 +29,8 @@ PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
 
 
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 2 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 L40x20 --dist1 checkerboard --grid2 fort.4.64x64 --dist2 checkerboard --interpA
- ~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 N320 --dist1 equal_regions --grid2 fort.4.64x64 --dist2 checkerboard --interpA --write1
+#~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 N320 --dist1 equal_regions --grid2 fort.4.64x64 --dist2 checkerboard --interpA --write1
+ ~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.64x64 --dist1 checkerboard --grid2 fort.4.32x32_100km --dist2 checkerboard --interpA --write1
 
 
 ls XYZ1.fa.* > /dev/null 2>&1

@@ -1,4 +1,6 @@
 #include "interpolationA.h"
+#include "ompsort.h"
+
 
 #include "atlas/runtime/Trace.h"
 #include "atlas/runtime/Exception.h"
@@ -99,7 +101,7 @@ interpolationAimpl::interpolationAimpl
   double dy2b = (yspc2[iny2-1] - yspc2[iny2-2]) / 2.0f;
 
 
-// TODO : Use OpenMP on jloc1
+#pragma omp parallel for
   for (int jloc1 = 0; jloc1 < size1; jloc1++)
     {
       //  For all points of grid #1 (only in our region), we find the nearest point of grid #2. Here,
@@ -243,8 +245,6 @@ interpolationAimpl::interpolationAimpl
 
   // Send
 
-// TODO : Use OpenMP
-
   yl_send.resize (insend);
 
   insend = 0;
@@ -259,6 +259,7 @@ interpolationAimpl::interpolationAimpl
         yl_send[insend].iloc.resize (isendcnt[iproc]);
      
         // List of points of grid #1 to send to iproc
+#pragma omp parallel for
         for (int i = 0; i < isendcnt[iproc]; i++)
           {
             int jind1 = iskip + isendoff[iproc] + i;
@@ -293,6 +294,7 @@ interpolationAimpl::interpolationAimpl
   for (auto & yl_exch : yl_exch_send)
     yl_exch.iglo1iglo2.clear ();
 
+#pragma omp parallel for
   for (int ii = 0; ii < yl_recv.size (); ii++) 
     {
       // Total number of points we get from this task
@@ -310,7 +312,6 @@ interpolationAimpl::interpolationAimpl
               jglo2 = iglo2;
             }
         }
-
         
       // Count number of different remote points for each local point on grid #2
       
@@ -388,7 +389,7 @@ interpolationAimpl::interpolationAimpl
 
   for (int ii = 0, jl = 0; ii < yl_recv.size (); ii++)
     {
-// TODO: Use OpenMP
+#pragma omp parallel for
       for (int jj = 0; jj < yl_recv[ii].desc.size (); jj++)
         {
           int jloc2 = yl_recv[ii].desc[jj].iloc         ;
@@ -403,7 +404,7 @@ interpolationAimpl::interpolationAimpl
   for (int ii = 0, jl = 0; ii < yl_exch_recv.size (); ii++)
     {
       size_t isize = yl_exch_recv[ii].iglo1iglo2.size () / 2;
-// TODO: Use OpenMP
+#pragma omp parallel for
       for (int jj = 0; jj < isize; jj++)
         isortk[jl+jj].iglo1 = yl_exch_recv[ii].iglo1iglo2[2*jj+0];
       jl = jl + isize;

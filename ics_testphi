@@ -118,17 +118,23 @@ ENTRY=atlas/programs/testphi.o
 end_of_testphi_link
 # BACKGROUND LIBRARIES (from top to bottom) :
 cat <<end_of_testphi_libs> $GMKWRKDIR/.testphi_libs
+/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libmse.inter.1.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libmse.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libprograms-mse.main.a
+/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libarpifs.inter.1.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libarpifs.main.a
+/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libaladin.inter.1.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libaladin.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libprograms-aladin.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libtrans.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libprograms-trans.main.a
+/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libprograms-etrans.inter.1.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libetrans.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libprograms-etrans.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libbiper.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libalgor.main.a
+/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libifsaux.inter.1.a
+/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libprograms-ifsaux.inter.1.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libifsaux.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libprograms-ifsaux.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x/lib/libunsxref-verbose.main.a
@@ -161,7 +167,7 @@ export ICS_ECHO=1
 
 export MAINPACK=
 export TARGET_PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
-export GMKVIEW="main local"
+export GMKVIEW="main inter.1 local"
 # ----------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------
 #

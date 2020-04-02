@@ -52,9 +52,9 @@ then
 ~/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 4 -- $PACK/bin/ATLAS_ARPEGE_F \
+  --wrap --wrap-stdeo -nn $NN -nnp 4 -openmp 32 -- $PACK/bin/ATLAS_ARPEGE_F \
   --grid1 L40000x20000 --dist1 checkerboard  --block1 40000 --light1 \
-  --grid2 N4000        --dist2 equal_regions --interpA 
+  --grid2 N1024        --dist2 equal_regions --interpA 
 
 fi
 

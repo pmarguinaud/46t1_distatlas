@@ -1,5 +1,6 @@
 #include "interpolationA.h"
 
+#include "atlas/runtime/Trace.h"
 #include "atlas/runtime/Exception.h"
 #include "atlas/grid.h"
 #include "atlas/array.h"

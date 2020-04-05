@@ -4,6 +4,7 @@
 #include "atlas/functionspace.h"
 #include "atlas/util/ObjectHandle.h"
 #include "atlas/field.h"
+#include "ompsort.h"
 
 #include <vector>
 

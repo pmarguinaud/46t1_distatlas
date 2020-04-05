@@ -62,6 +62,9 @@ interpolationAimpl::interpolationAimpl
  const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
 : dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
 {
+  ATLAS_TRACE_SCOPE ("interpolationAimpl::interpolationAimpl")
+  {
+
   size_t size1 = fs1.sizeOwned ();
   size_t size2 = fs2.sizeOwned ();
 
@@ -200,7 +203,8 @@ interpolationAimpl::interpolationAimpl
 
   comm.allToAll (isendcnt, irecvcnt);
 
-  // Sort points by task, global indice
+  ATLAS_TRACE_SCOPE ("Sort points by task, global indice")
+  {
 
   std::vector<int> iord_by_prc2glo2 (prcglo1.size ());
 
@@ -215,6 +219,8 @@ interpolationAimpl::interpolationAimpl
            });
 
   prcglo1 = reorder (prcglo1, iord_by_prc2glo2);
+
+  }
 
   int insend = std::count_if (std::begin (isendcnt), std::end (isendcnt), [] (size_t k) { return k > 0; });
   int inrecv = std::count_if (std::begin (irecvcnt), std::end (irecvcnt), [] (size_t k) { return k > 0; });
@@ -299,6 +305,8 @@ interpolationAimpl::interpolationAimpl
   for (auto & yl_exch : yl_exch_send)
     yl_exch.iglo1iglo2.clear ();
 
+  ATLAS_TRACE_SCOPE ("Prepare receive descriptors")
+  {
 #pragma omp parallel for
   for (int ii = 0; ii < yl_recv.size (); ii++) 
     {
@@ -358,6 +366,7 @@ interpolationAimpl::interpolationAimpl
                                       - yl_recv[ii].desc[isize-1].irem_off;
       
     }
+  }
 
   // Total number of points received by this proc
   isize_recv = std::accumulate (std::begin (yl_recv), std::end (yl_recv), 
@@ -415,19 +424,20 @@ interpolationAimpl::interpolationAimpl
       jl = jl + isize;
     }
 
-  // Sort by local index, remote index
+  ATLAS_TRACE_SCOPE ("Sort by local index, remote index")
+  {
+    std::vector<int> iord (isize_recv);
+    std:iota (std::begin (iord), std::end (iord), 0);
 
-  std::vector<int> iord (isize_recv);
-  std:iota (std::begin (iord), std::end (iord), 0);
+    ompsort (std::begin (iord), std::end (iord), [&isortk] (int a, int b)
+             {
+               if (isortk[a].jloc2 == isortk[b].jloc2) 
+                 return isortk[a].iglo1 < isortk[b].iglo1;
+               return isortk[a].jloc2 < isortk[b].jloc2;
+             });
 
-  ompsort (std::begin (iord), std::end (iord), [&isortk] (int a, int b)
-           {
-             if (isortk[a].jloc2 == isortk[b].jloc2) 
-               return isortk[a].iglo1 < isortk[b].iglo1;
-             return isortk[a].jloc2 < isortk[b].jloc2;
-           });
-
-  isort = reverse (iord);
+    isort = reverse (iord);
+  }
 
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)  
     if (desc[jloc2].icnt == 0)
@@ -441,11 +451,15 @@ interpolationAimpl::interpolationAimpl
     std::cerr << " shuffle : no points were for " << isize_miss << " points " << std::endl;
 
 
+  }
 }
 
 template <typename T>
 atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
 {
+  ATLAS_TRACE_SCOPE ("interpolationAimpl::shuffle")
+  {
+
   atlas::FieldSet pgp2e;
 
   auto & comm = atlas::mpi::comm ();
@@ -467,12 +481,9 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
       pgp2e.add (f2e);
     }
 
-  std::vector<eckit::mpi::Request> 
-                     reqsend (insend), 
-                     reqrecv (inrecv);
+  std::vector<eckit::mpi::Request> reqsend (insend), reqrecv (inrecv);
 
-  std::vector<T> zbufr (infld * isize_recv);
-  std::vector<T> zbufs (infld * isize_send);
+  atlas::vector<T> zbufr (infld * isize_recv), zbufs (infld * isize_send);
 
   for (int ii = 0, ioffr = 0; ii < inrecv; ii++)
     {
@@ -542,11 +553,15 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
     comm.wait (reqsend[i]);
 
   return pgp2e;
+  }
 }
 
 template <typename T> atlas::FieldSet
 interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
 {
+  ATLAS_TRACE_SCOPE ("interpolationAimpl::interpolate")
+  {
+
   atlas::FieldSet pgp2;
   atlas::FieldSet pgp2e = shuffle<T> (pgp1);
 
@@ -589,6 +604,7 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
     } 
 
   return pgp2;
+  }
 }
 
 #define DEF(T) \

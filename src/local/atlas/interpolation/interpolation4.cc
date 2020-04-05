@@ -70,6 +70,7 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
   auto i = atlas::array::make_view<int,1> (fs.index_i ());
   auto j = atlas::array::make_view<int,1> (fs.index_j ());
 
+// TODO: Use OpenMP
   for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
     {
       atlas::PointLonLat ll = fs.grid ().StructuredGrid::lonlat (i (jloc)-1, j (jloc)-1);
@@ -91,6 +92,9 @@ interpolation4impl::interpolation4impl
  const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
 : dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
 {
+  ATLAS_TRACE_SCOPE ("interpolation4impl::interpolation4impl")
+  {
+
   size1 = fs1.sizeOwned ();
   size2 = fs2.sizeOwned ();
 
@@ -117,6 +121,7 @@ interpolation4impl::interpolation4impl
 // TODO: Use OpenMP on jloc2
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
     {
+
       atlas::PointLonLat lonlat2 = grid2.StructuredGrid::lonlat (i2 (jloc2)-1, j2 (jloc2)-1);
       atlas::PointXY xy1 = proj1.xy (lonlat2);
 
@@ -124,9 +129,15 @@ interpolation4impl::interpolation4impl
 
       // Search along Y axis
       if (lt (xy1.y (), yspc1.front ()))
-        iy1a = -1;
+        {
+          iy1a = -1;
+          iy1b =  0;
+        }
       else if (gt (xy1.y (), yspc1.back ()))
-        iy1a = iny1-1;
+        {
+          iy1a = iny1-1;
+          iy1b = -1;
+        }
       else
         {
           iy1a = 0;
@@ -142,10 +153,9 @@ interpolation4impl::interpolation4impl
               if (abs (iy1b - iy1a) <= 1)
                 break;
             }
+          iy1b = iy1a + 1;
         }
        
-      iy1b = iy1a + 1;
-
       // Search along X axis
 
       auto x1iy1_to_iwie = [&] (double x1, int iy1, atlas::gidx_t & iw, atlas::gidx_t & ie)
@@ -169,6 +179,7 @@ interpolation4impl::interpolation4impl
                 if ((ix1b < 0) || (ix1b >= inx1)) ix1b = -1;
               }
           }
+
         iw = (iy1 >= 0) && (ix1a >= 0) ? grid1.ij2gidx (ix1a, iy1) : -1;
         ie = (iy1 >= 0) && (ix1b >= 0) ? grid1.ij2gidx (ix1b, iy1) : -1;
       };
@@ -180,6 +191,7 @@ interpolation4impl::interpolation4impl
       x1iy1_to_iwie (xy1.x (), iy1b, 
                      iglo1all[4 * (jloc2 + 1) + ISW - 1], 
                      iglo1all[4 * (jloc2 + 1) + ISE - 1]);
+
 
     }
 
@@ -402,11 +414,15 @@ interpolation4impl::interpolation4impl
     isize_send += r.icnt;
 
   create_weights ();
+  }
 }
 
 template <typename T> atlas::FieldSet
 interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
 {
+  ATLAS_TRACE_SCOPE ("interpolation4impl::shuffle")
+  {
+
   atlas::FieldSet pgp2e;
 
   int infld = pgp1.size ();
@@ -506,11 +522,15 @@ if (k >= pgp1[jfld].size ()) abort ();
     comm.wait (req);
 
   return pgp2e;
+  }
 }
 
 void
 interpolation4impl::create_weights ()
 {
+  ATLAS_TRACE_SCOPE ("interpolation4impl::create_weights")
+  {
+
   auto xyz1 = getXYZ (fs1);
   auto xyz2 = getXYZ (fs2);
 
@@ -543,10 +563,7 @@ interpolation4impl::create_weights ()
           else 
             // Prevent division by zero
             weights4.values[4*(jloc2+1)+jj-1] = 1.0 / std::max (1.0E-10, 
-                       // Scalar product
-                       acos (x2[jloc2] * x2e[jind1] + 
-                             y2[jloc2] * y2e[jind1] + 
-                             z2[jloc2] * z2e[jind1]));
+              acos (x2[jloc2] * x2e[jind1] + y2[jloc2] * y2e[jind1] + z2[jloc2] * z2e[jind1])); // Scalar product
 
         }
 
@@ -559,12 +576,16 @@ interpolation4impl::create_weights ()
       for (int j = 0; j < 4; j++)
         weights4.values[4*(jloc2+1)+c[j]-1] /= s;
     }
+  }
 }
 
 
 template <typename T> atlas::FieldSet
 interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
 {
+  ATLAS_TRACE_SCOPE ("interpolation4impl::interpolate")
+  {
+
   atlas::FieldSet pgp2;
 
   auto & comm = atlas::mpi::comm ();
@@ -604,6 +625,7 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
     }
 
   return pgp2;
+  }
 }
 
 

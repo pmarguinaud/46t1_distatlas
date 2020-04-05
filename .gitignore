@@ -32,3 +32,4 @@ stdeo.*
 *.swp
 *.db
 src/inter.1
+slurm-*.out

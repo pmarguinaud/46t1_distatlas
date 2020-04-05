@@ -56,9 +56,9 @@ export ATLAS_TRACE_REPORT=1
 ~/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 4 -openmp  2 -- $PACK/bin/ATLAS_ARPEGE_F \
-  --grid1 N1024    --dist1 equal_regions --interp4 \
-  --grid2 N2000    --dist2 equal_regions 
+  --wrap --wrap-stdeo -nn $NN -nnp 8 -openmp 16 -- $PACK/bin/ATLAS_ARPEGE_F \
+  --grid1 N1024        --dist1 equal_regions --interp4 \
+  --grid2 L40000x20000 --dist2 checkerboard  --block2 40000 --light2
 
 elif [ 0 -eq 1 ]
 then

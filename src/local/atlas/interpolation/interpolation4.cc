@@ -1,4 +1,5 @@
 #include "interpolation4.h"
+#include "ompsort.h"
 
 
 #include "atlas/runtime/Exception.h"
@@ -37,6 +38,7 @@ template <typename T, typename I>
 T reorder (const T & vec, const I & ord)
 {
   T v (ord.size ());
+#pragma omp parallel for
   for (typename I::value_type i = 0; i < ord.size (); i++)
     v[i] = vec[ord[i]];
   return v;
@@ -46,14 +48,26 @@ template <typename I>
 I reverse (const I & ord)
 {
   I rev (ord.size ());
+#pragma omp parallel for
   for (typename I::value_type i = 0; i < ord.size (); i++)
     rev[ord[i]] = i;
   return rev;
 }
 
+template <typename I, typename J>
+void ompiota (I b, I e, J j)
+{
+#pragma omp parallel for
+  for (int i = 0; i < e - b; i++)
+    b[i] = i + j;
+}
+
 atlas::FieldSet 
 getXYZ (const atlas::functionspace::StructuredColumns & fs)
 {
+  ATLAS_TRACE_SCOPE ("getXYZ")
+  {
+
   atlas::FieldSet xyz;
 
   auto t = atlas::array::DataType::kind<double> ();
@@ -70,7 +84,7 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
   auto i = atlas::array::make_view<int,1> (fs.index_i ());
   auto j = atlas::array::make_view<int,1> (fs.index_j ());
 
-// TODO: Use OpenMP
+#pragma omp parallel for
   for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
     {
       atlas::PointLonLat ll = fs.grid ().StructuredGrid::lonlat (i (jloc)-1, j (jloc)-1);
@@ -82,6 +96,7 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
     }
 
   return xyz;
+  }
 }
 
 
@@ -118,7 +133,9 @@ interpolation4impl::interpolation4impl
   auto le = [yincr] (const double a, const double b) { return yincr ? a <= b : a >= b; };
   auto gt = [yincr] (const double a, const double b) { return yincr ? a >  b : a <  b; };
 
-// TODO: Use OpenMP on jloc2
+  ATLAS_TRACE_SCOPE ("Coordinates mapping")
+  {
+#pragma omp parallel for
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
     {
 
@@ -194,16 +211,21 @@ interpolation4impl::interpolation4impl
 
 
     }
+  }
+
 
   std::vector<int> 
        iord_by_glo1 (iglo1all.size ()), // Sort by glo1
        irev_by_glo1 (iglo1all.size ()), // Reverse sort
        ired_by_glo1 (iglo1all.size ()); // Reduction of sorted array
 
-  std::iota (std::begin (iord_by_glo1), std::end (iord_by_glo1), 0);
+  ATLAS_TRACE_SCOPE ("Sort indices")
+  {
 
-  std::sort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
-             [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; });
+  ompiota (std::begin (iord_by_glo1), std::end (iord_by_glo1), 0);
+
+  ompsort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
+           [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; });
 
   // Reverse indices array
 
@@ -212,6 +234,8 @@ interpolation4impl::interpolation4impl
   // Reorder indices of grid #1
 
   iglo1all = reorder (iglo1all, iord_by_glo1);
+
+  };
 
   // Reduce list of indices on grid #1 : ired_by_glo1 contains the 
   // indice of the first occurrence of a given value
@@ -245,20 +269,21 @@ interpolation4impl::interpolation4impl
     else
       prcglo1[i].iprc = dist1.partition (prcglo1[i].iglo);
 
-  // Sort by (MPI task, global index)
+  ATLAS_TRACE_SCOPE ("Sort by (MPI task, global index)")
+  {
 
   std::vector<int> 
      iord_by_prc1glo1 (inpt1),
      irev_by_prc1glo1 (inpt1);
 
-  std::iota (std::begin (iord_by_prc1glo1), std::end (iord_by_prc1glo1), 0);
+  ompiota (std::begin (iord_by_prc1glo1), std::end (iord_by_prc1glo1), 0);
 
-  std::sort (std::begin (iord_by_prc1glo1), std::end (iord_by_prc1glo1), 
-             [&prcglo1] (int a, int b) { 
-                if (prcglo1[a].iprc == prcglo1[b].iprc)
-                  return prcglo1[a].iglo < prcglo1[b].iglo; 
-                return prcglo1[a].iprc < prcglo1[b].iprc; 
-            });
+  ompsort (std::begin (iord_by_prc1glo1), std::end (iord_by_prc1glo1), 
+           [&prcglo1] (int a, int b) { 
+              if (prcglo1[a].iprc == prcglo1[b].iprc)
+                return prcglo1[a].iglo < prcglo1[b].iglo; 
+              return prcglo1[a].iprc < prcglo1[b].iprc; 
+           });
 
   irev_by_prc1glo1 = reverse (iord_by_prc1glo1);
 
@@ -269,6 +294,8 @@ interpolation4impl::interpolation4impl
   // Final sort array
 
   isort = reorder (irev_by_prc1glo1, reorder (ired_by_glo1, irev_by_glo1));
+
+  };
 
   // Send/recv counts
 
@@ -473,9 +500,11 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
     {
       int ioff = yl_send[i].ioff;
       int icnt = yl_send[i].icnt;
+// TODO: Collapse loops
       for (int jfld = 0; jfld < infld; jfld++)
         {
           auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
+#pragma omp parallel for
           for (int k = 0; k < icnt; k++)
             {
 if (k < 0) abort ();
@@ -489,6 +518,7 @@ if (k >= pgp1[jfld].size ()) abort ();
 
   // Create fields in pgp2
   
+// TODO: Collapse loops
   for (int jfld = 0; jfld < infld; jfld++)
     {
       auto f1  = pgp1[jfld];
@@ -498,6 +528,7 @@ if (k >= pgp1[jfld].size ()) abort ();
       f2e.metadata () = f1.metadata ();
       pgp2e.add (f2e);
       auto v = atlas::array::make_view<T,1> (f2e);
+#pragma omp parallel for
       for (int k = 0; k < yl_recv[0].ioff; k++)
         v (k) = 0;
     }
@@ -510,9 +541,11 @@ if (k >= pgp1[jfld].size ()) abort ();
     {
       int ioff = yl_recv[i].ioff;
       int icnt = yl_recv[i].icnt;
+// TODO: Collapse loops
       for (int jfld = 0; jfld < infld; jfld++)
         {
           auto v = atlas::array::make_view<T,1> (pgp2e[jfld]);
+#pragma omp parallel for
           for (int k = 0; k < icnt; k++)
             v (ioff + k) = zbufr[infld * ioff + jfld * icnt + k];
         }
@@ -546,6 +579,8 @@ interpolation4impl::create_weights ()
   auto y2e = atlas::array::make_view<double,1> (xyz2e[1]);
   auto z2e = atlas::array::make_view<double,1> (xyz2e[2]);
   
+  ATLAS_TRACE_SCOPE ("Compute weights");
+#pragma omp parallel for
   for (int jloc2 = 0; jloc2 < size2; jloc2++) 
     {
       // The weight is the inverse of the distance in radian between the target point 
@@ -576,7 +611,7 @@ interpolation4impl::create_weights ()
       for (int j = 0; j < 4; j++)
         weights4.values[4*(jloc2+1)+c[j]-1] /= s;
     }
-  }
+  };
 }
 
 
@@ -607,11 +642,12 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
       pgp2.add (f2);
     }
 
+// TODO: Collapse loops
   for (int jfld = 0; jfld < infld; jfld++)
     {
       auto v2  = atlas::array::make_view<T,1> (pgp2 [jfld]);
       auto v2e = atlas::array::make_view<T,1> (pgp2e[jfld]);
-      // TODO : Use OpenMP
+#pragma omp parallel for
       for (int jloc2 = 0; jloc2 < size2; jloc2++)
         {
           int kisw = 4*(jloc2+1)+ISW-1, jisw = isort[kisw];

@@ -41,6 +41,7 @@ template <typename T, typename I>
 T reorder (const T & vec, const I & ord)
 {
   T v (ord.size ());
+#pragma omp parallel for
   for (typename I::value_type i = 0; i < ord.size (); i++)
     v[i] = vec[ord[i]];
   return v;
@@ -50,9 +51,17 @@ template <typename I>
 I reverse (const I & ord)
 {
   I rev (ord.size ());
+#pragma omp parallel for
   for (typename I::value_type i = 0; i < ord.size (); i++)
     rev[ord[i]] = i;
   return rev;
+}
+
+template <typename I, typename J>
+void ompiota (I b, I e, J j)
+{
+  for (int i = 0; i < e - b; i++)
+    b[i] = i + j;
 }
 
 };
@@ -208,7 +217,7 @@ interpolationAimpl::interpolationAimpl
 
   std::vector<int> iord_by_prc2glo2 (prcglo1.size ());
 
-  std::iota (std::begin (iord_by_prc2glo2), std::end (iord_by_prc2glo2), 0);
+  ompiota (std::begin (iord_by_prc2glo2), std::end (iord_by_prc2glo2), 0);
 
   ompsort (std::begin (iord_by_prc2glo2), std::end (iord_by_prc2glo2), 
            [&prcglo1] (int a, int b) 
@@ -427,7 +436,7 @@ interpolationAimpl::interpolationAimpl
   ATLAS_TRACE_SCOPE ("Sort by local index, remote index")
   {
     std::vector<int> iord (isize_recv);
-    std:iota (std::begin (iord), std::end (iord), 0);
+    ompiota (std::begin (iord), std::end (iord), 0);
 
     ompsort (std::begin (iord), std::end (iord), [&isortk] (int a, int b)
              {

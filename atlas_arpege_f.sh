@@ -46,15 +46,37 @@ PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 4 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.64x64 --dist1 checkerboard --grid2 fort.4.32x32_100km --dist2 checkerboard --interpA --write1
 #~/SAVE/mpiauto/mpiauto --wrap --wrap-stdeo -np 1 -- $PACK/bin/ATLAS_ARPEGE_F --grid1 fort.4.64x64 --dist1 checkerboard --grid2 fort.4.32x32_100km --dist2 checkerboard --interpA --write1
 
-if [ 1 -eq 1 ]
+if [ 0 -eq 1 ]
 then
+
+# --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
+~/SAVE/mpiauto/mpiauto \
+  --prefix-mpirun '/usr/bin/time -f "time=%es"' \
+  --prefix-command '/home/gmap/mrpm/marguina/bin/perf_wrap --call-graph fp' \
+  --wrap --wrap-stdeo -nn $NN -nnp 4 -openmp 32 -- $PACK/bin/ATLAS_ARPEGE_F \
+  --grid1 L40000x20000 --dist1 checkerboard  --block1 40000 --light1 \
+  --grid2 N1024        --dist2 equal_regions --interpA 
+
+elif [ 1 -eq 1 ]
+then
+
+export ATLAS_TRACE=1
 
 ~/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 4 -openmp 32 -- $PACK/bin/ATLAS_ARPEGE_F \
-  --grid1 L40000x20000 --dist1 checkerboard  --block1 40000 --light1 \
-  --grid2 N1024        --dist2 equal_regions --interpA 
+  --grid1 L4000x2000 --dist1 checkerboard  --block1 4000 --light1 \
+  --grid2 N512       --dist2 equal_regions --interpA 
+
+else
+
+~/SAVE/mpiauto/mpiauto \
+  --prefix-mpirun '/usr/bin/time -f "time=%es"' \
+  --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
+  --wrap --wrap-stdeo -nn $NN -nnp 1 -openmp 1 -- $PACK/bin/ATLAS_ARPEGE_F \
+  --grid1 L400x200 --dist1 checkerboard  --block1 400 --light1 \
+  --grid2 N16      --dist2 equal_regions --interpA 
 
 fi
 

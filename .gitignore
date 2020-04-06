@@ -33,3 +33,4 @@ stdeo.*
 *.db
 src/inter.1
 slurm-*.out
+*.x

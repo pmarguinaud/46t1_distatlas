@@ -1,39 +1,37 @@
+#include "atlas/library/Library.h"
+#include "atlas/util/Config.h"
+#include "atlas/grid.h"
+#include "atlas/array.h"
+#include "atlas/parallel/mpi/mpi.h"
+#include "atlas/functionspace.h"
+
 #include <stdlib.h>
-#include "ompsort.h"
+#include <iostream>
+#include <sstream>  
 
 
 int main (int argc, char * argv[]) 
 {
-  const int n = atoi (argv[1]);
-  std::vector<int> vec (n);  
-  std::vector<int> ord (n);
+  const int Nx = 129, Ny = 105;
+  const double xmax = 17, xmin = -15, ymax = 61, ymin = 35;
 
-  srand (0);
-
-  for (int i = 0; i < n; i++)
-    {
-      ord[i] = i;
-      vec[i] = rand () % n; 
-    }
-
-#ifdef UNDEF
-  for (int i = 0; i < n; i++)
-    printf (" %8d > %8d\n", i, vec[i]);
-  printf ("----\n");
-#endif
-
-  auto cmp = [&] (const int o1, const int o2) 
-    { return vec[o1] < vec[o2]; };
-
-  ompsort (ord.begin (), ord.end (), cmp);
+  std::vector<atlas::grid::Spacing> spacings (Ny);
+    
+  for (int i = 0; i < Ny; i++)
+    spacings[i] = atlas::grid::Spacing (atlas::util::Config ("type", "linear") | atlas::util::Config ("N", Nx)
+                                       | atlas::util::Config ("start", xmin) | atlas::util::Config ("end", xmax));
   
+  atlas::StructuredGrid::XSpace xspace (spacings);
+  atlas::StructuredGrid::YSpace yspace (atlas::util::Config ("type", "linear") | atlas::util::Config ("N", Ny) 
+                                      | atlas::util::Config ("start", ymin) | atlas::util::Config ("end", ymax));
+  atlas::Projection proj (atlas::util::Config ("type", "lonlat"));
 
-  for (int i = 0; i < vec.size ()-1; i++)
-    {
-      int j = i + 1;
-      if (cmp (ord[j], ord[i]))
-        printf (" %8d > %8d, %8d\n", i, vec[ord[i]], vec[ord[j]]);
-    }
+  atlas::StructuredGrid grid (xspace, yspace, proj, atlas::Domain ());
+
+  printf (" grid.ny () = %8d\n", grid.ny ());  
+
+
+
 
   return 0;
 }

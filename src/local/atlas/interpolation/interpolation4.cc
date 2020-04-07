@@ -114,8 +114,7 @@ interpolation4impl::interpolation4impl
   size2 = fs2.sizeOwned ();
 
   auto & comm = atlas::mpi::comm ();
-
-  int myproc = comm.rank (), nproc = comm.size ();
+  int irank = comm.rank (), nproc = comm.size ();
 
   std::vector<atlas::gidx_t> iglo1all (4 * fs2.sizeOwned ());
 
@@ -183,7 +182,7 @@ interpolation4impl::interpolation4impl
             int inx1 = xspc1.nx ()[iy1];
             double dx = xspc1.dx ()[iy1];
             double xmin = xspc1.xmin ()[iy1];
-            ix1a = floor ((xy1.x () - xmin) / dx); 
+            ix1a = floor ((x1 - xmin) / dx); 
             ix1b = ix1a + 1;
             if (glob)
               {
@@ -461,8 +460,7 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
      zbufs (isize_send * infld);
 
   auto & comm = atlas::mpi::comm ();
-
-  int myproc = comm.rank (), nproc = comm.size ();
+  int irank = comm.rank (), nproc = comm.size ();
 
   // Requests for send/recv
 
@@ -624,7 +622,7 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
   atlas::FieldSet pgp2;
 
   auto & comm = atlas::mpi::comm ();
-  int myproc = comm.rank (), nproc = comm.size ();
+  int irank = comm.rank (), nproc = comm.size ();
 
   int infld = pgp1.size ();
 

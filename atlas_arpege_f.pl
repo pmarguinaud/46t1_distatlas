@@ -191,7 +191,7 @@ my @siA =
   [qw (fort.4.64x64   fort.4.32x32_100km   )], # AROME to AROME
 );
 
-if (1){
+if (0){
 &mkpath ('siA');
 chdir ('siA');
 &run (4, 2, '--interpA', @siA);
@@ -206,12 +206,27 @@ my @bi4 =
   [qw (N2000          fort.4.512x512       )],
 );
 
+if (0){
+&mkpath ('bi4');
+chdir ('bi4');
+&run (8, 16, '--interp4', @bi4);
+chdir ('..');
+}
+
+
 my @biA =
 (
   [qw (L40000x20000   N1024                )],
   [qw (L4000x2000     N512                 )],
   [qw (L40000x20000   fort.4.512x512       )],
 );
+
+if (1){
+&mkpath ('biA');
+chdir ('biA');
+&run (8, 16, '--interpA', @biA);
+chdir ('..');
+}
 
 
 

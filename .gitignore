@@ -34,3 +34,5 @@ stdeo.*
 src/inter.1
 slurm-*.out
 *.x
+*.fa*
+linux_bind.txt

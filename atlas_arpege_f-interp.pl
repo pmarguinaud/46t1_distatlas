@@ -4,6 +4,7 @@ use strict;
 use FileHandle;
 use File::Path;
 use File::Basename;
+use Getopt::Long;
 
 
 sub label
@@ -76,14 +77,17 @@ sub mpiauto
 
   my $mpiauto = "/home/gmap/mrpm/marguina/SAVE/mpiauto/mpiauto";
 
-  my @mpiauto = ($mpiauto, qw (--wrap --wrap-stdeo), -nnp => $nnp, 
-                 -openmp => $openmp, -nn => &nn (), '--', @exec);
+  my @mpiauto = ($mpiauto, qw (--wrap --wrap-stdeo), 
+                 -nnp => $nnp, -openmp => $openmp, -nn => &nn (), 
+                  '--prefix-mpirun', '/usr/bin/time -f "time=%es"',
+                  '--prefix-command', '/usr/bin/time -f "mem=%Mkb"',
+                 '--', @exec);
 
   printf ("@mpiauto\n");
 
   local $ENV{DR_HOOK} = 0;
   local $ENV{DR_HOOK_NOT_MPI} = 1;
-  die if (system ("ulimit -s unlimited; @mpiauto"));
+  die if (system (@mpiauto));
 
   unlink ('linux_bind.txt');
 
@@ -156,8 +160,10 @@ sub run
 }
 
 
-my @si4 =
+my %test = 
 (
+  si4 =>
+[
   [qw (L80x40          fort.4.t32          )], # Global lat/lon to various domains
   [qw (L80x40          ICMSHARPEINIT       )],
   [qw (L80x40          fort.4.64x64        )],
@@ -168,19 +174,9 @@ my @si4 =
   [qw (N32             N64                 )], # ARPEGE to ARPEGE
   [qw (fort.4.t32      fort.4.64x64        )], # ARPEGE to AROME
   [qw (fort.4.64x64    fort.4.32x32        )], # AROME to AROME
-);
-
-
-if (0){
-&mkpath ('si4');
-chdir ('si4');
-&run (4, 2, '--interp4', @si4);
-chdir ('..');
-}
-
-
-my @siA =
-(
+],
+  siA =>
+[
   [qw (L320x160       fort.4.32x32         )], # Global lat/lon to various domains
   [qw (X160x80        fort.4.t32           )],
   [qw (L160x80        fort.4.t32           )],
@@ -189,47 +185,50 @@ my @siA =
   [qw (N320           fort.4.64x64         )],
   [qw (N320           N80                  )],
   [qw (fort.4.64x64   fort.4.32x32_100km   )], # AROME to AROME
-);
-
-if (0){
-&mkpath ('siA');
-chdir ('siA');
-&run (4, 2, '--interpA', @siA);
-chdir ('..');
-}
-
-
-my @bi4 =
-(
+],
+  bi4 =>
+[
   [qw (N1024          L4000x2000           )],
   [qw (N2000          L400x200             )],
   [qw (N2000          fort.4.512x512       )],
-);
-
-if (0){
-&mkpath ('bi4');
-chdir ('bi4');
-&run (8, 16, '--interp4', @bi4);
-chdir ('..');
-}
-
-
-my @biA =
-(
+],
+  biA =>
+[
   [qw (L40000x20000   N1024                )],
   [qw (L4000x2000     N512                 )],
   [qw (L40000x20000   fort.4.512x512       )],
+],
 );
 
-if (1){
-&mkpath ('biA');
-chdir ('biA');
-&run (8, 16, '--interpA', @biA);
-chdir ('..');
-}
+my %opts;
+my @opts_f = qw (small large trace interp4 interpA);
+
+&GetOptions
+  (
+    map ({ ($_, \$opts{$_}) } @opts_f),
+  );
 
 
 
+my @test;
 
 
+push @test, ['--interp4', 'si4'] if ($opts{small} && $opts{interp4});
+push @test, ['--interpA', 'siA'] if ($opts{small} && $opts{interpA});
+push @test, ['--interp4', 'bi4'] if ($opts{large} && $opts{interp4});
+push @test, ['--interpA', 'biA'] if ($opts{large} && $opts{interpA});
+
+if ($opts{trace})
+  {
+    $ENV{ATLAS_TRACE}        = 1;
+    $ENV{ATLAS_TRACE_REPORT} = 1;
+  }
+
+for my $test (@test)
+  {
+    my ($option, $name) = @{ $test };
+    &rmtree ($name); &mkpath ($name); chdir ($name);
+    &run (4, 2, $option, @{ $test{$name} });
+    chdir ('..');
+  }
 

@@ -1,3 +1,5 @@
+#include "gradient.h"
+
 #include "atlas/library/Library.h"
 #include "atlas/util/Config.h"
 #include "atlas/grid.h"
@@ -59,104 +61,6 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
   return xyz;
 }
 
-
-atlas::FieldSet
-gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::FieldSet & pgp)
-{
-  auto & comm = atlas::mpi::comm ();
-  int irank = comm.rank (), nproc = comm.size ();
-
-  atlas::FieldSet pgrad;
-
-  const atlas::StructuredGrid & grid = fs.grid ();
-
-  fs.haloExchange (pgp);
-
-  auto iv = atlas::array::make_view<int,1> (fs.index_i ());
-  auto jv = atlas::array::make_view<int,1> (fs.index_j ());
-
-  bool glob  = grid.domain ().global ();
-
-  const auto & xspc = grid.xspace ();
-
-  printf (" grid.ny () = %8d\n", grid.ny ());
-
-  for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
-    {
-      int i = iv (jloc) - 1, j = jv (jloc) - 1;
-
-      atlas::PointXY xy = grid.xy (i, j);
-
-      if ((j == 0) || (j == grid.ny () - 1))
-        continue;
-
-      int jm = j - 1, j0 = j + 0, jp = j + 1;
-
-      auto xj_to_imip = [&] (double x, int j, int & im, int & ip)
-      {
-        
-        int inx = xspc.nx ()[j];
-        double dx = xspc.dx ()[j];
-        double xmin = xspc.xmin ()[j];
-        im = floor ((x - xmin) / dx); 
-        ip = im + 1;
-        if (! glob)
-          {
-            if ((im < 0) || (im >= inx)) im = -1;
-            if ((ip < 0) || (ip >= inx)) ip = -1;
-          }
-      };
-
-      int inw, jnw = jm, ine, jne = jm,  
-          isw, jsw = jp, ise, jse = jp;
-
-      xj_to_imip (xy.x (), jnw, inw, ine);
-      xj_to_imip (xy.x (), jsw, isw, ise);
-
-      auto check_ij = [&] (int i, int j)
-      {
-        if ((i < 0) || (j < 0))
-          return;
-        if (j <  fs.j_begin_halo ( )) { printf ("%s:%d\n", __FILE__, __LINE__); abort (); }
-        if (j >= fs.j_end_halo   ( )) { printf ("%s:%d\n", __FILE__, __LINE__); abort (); }
-        if (i <  fs.i_begin_halo (j)) { printf ("%s:%d\n", __FILE__, __LINE__); abort (); }
-        if (i >= fs.i_end_halo   (j)) { printf ("%s:%d\n", __FILE__, __LINE__); abort (); }
-      };
-
-      auto ij_to_index_and_xy = [&] (bool w, bool e, int i, int j, atlas::PointXY & xy)
-      {
-        if ((i < 0) || (j < 0))
-          return -1;
-        xy = grid.StructuredGrid::xy (i, j);
-
-        if (glob)
-          {
-            if (w && (i == xspc.nx ()[j]-1)) 
-              xy = atlas::PointXY (-xspc.dx ()[j], xy.y ());
-            if (e && (i == 0))  // TODO: check xmax
-              xy = atlas::PointXY (xspc.xmax ()[j] + xspc.dx ()[j], xy.y ());
-          }
-        return fs.index (i, j);
-      };
-
-      atlas::PointXY xynw, xyne, xysw, xyse;
-
-      atlas::idx_t 
-            jlocnw = ij_to_index_and_xy (true, false, jnw, inw, xynw), 
-            jlocne = ij_to_index_and_xy (false, true, jne, ine, xyne),
-            jlocsw = ij_to_index_and_xy (true, false, jsw, isw, xysw), 
-            jlocse = ij_to_index_and_xy (false, true, jse, ise, xyse);
-
-
-      printf ("| %8d, %8d | %8d, %8d | %8d, %8d | %8d, %8d |\n", 
-              i, j, inw, jnw, ine, jne, isw, jsw, ise, jse);
-
-
-    }
-
-
-  return pgrad;
-}
 
 
 int main (int argc, char * argv[]) 

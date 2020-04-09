@@ -123,9 +123,6 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
   for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
     {
-
-bool dbg = (irank == 0) && (jloc == 0);
-
       int i = iv (jloc) - 1, j = jv (jloc) - 1;
 
       atlas::PointXY xy = atlas::PointXY (vxy (jloc, 0), vxy (jloc, 1));
@@ -148,9 +145,6 @@ bool dbg = (irank == 0) && (jloc == 0);
 
       xj_to_imip (xy.x (), jnw, inw, ine);
       xj_to_imip (xy.x (), jsw, isw, ise);
-
-if (dbg)
-printf (" inw, jnw = %8d, %8d\n", inw, jnw);
 
       i_w = i - 1;
       i_e = i + 1;

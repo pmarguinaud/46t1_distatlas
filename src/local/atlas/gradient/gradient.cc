@@ -167,18 +167,6 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
            jloc_w = ij_to_index_and_xy (i_w, j_w),
            jloc_e = ij_to_index_and_xy (i_e, j_e);
 
-if (0)
-if (j == 0)
-{
-  printf (" jloc = %8d\n", jloc);
-
-  printf (" jlocnw, jlocne, jlocsw, jlocse, jloc_w, jloc_e = %8d, %8d, %8d, %8d, %8d, %8d\n", 
-            jlocnw, jlocne, jlocsw, jlocse, jloc_w, jloc_e);
-
-  continue;
-
-}
-
       for (int jfld = 0; jfld < pgp.size (); jfld++)
         {
           auto v  = atlas::array::make_view<double,1> (pgp [  jfld  ]);
@@ -190,7 +178,10 @@ if (j == 0)
           double xw = vxy (jloc_w, 0);
           double xe = vxy (jloc_e, 0);
 
-          vx (jloc) = (vw - ve) / (xw - xe);
+          if (glob && ((xe - xw) < -180.0))
+            xw = xw - 360.0;
+
+          vx (jloc) = (ve - vw) / (xe - xw);
 
           double an = (vxy (jloc, 0) - vxy (jlocne, 0)) / (vxy (jlocnw, 0) - vxy (jlocne, 0));
           double as = (vxy (jloc, 0) - vxy (jlocse, 0)) / (vxy (jlocsw, 0) - vxy (jlocse, 0));

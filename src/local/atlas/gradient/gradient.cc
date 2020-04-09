@@ -55,10 +55,10 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
     {
       auto f1 = pgp[jfld];
 
-      auto f2x = atlas::Field (f1.name () + ".dx",
+      auto f2x = atlas::Field (f1.name () + ".DX",
                                atlas::array::DataType::kind<double> (), 
                                atlas::array::make_shape (fs.size ()));
-      auto f2y = atlas::Field (f1.name () + ".dy",
+      auto f2y = atlas::Field (f1.name () + ".DY",
                                atlas::array::DataType::kind<double> (), 
                                atlas::array::make_shape (fs.size ()));
 

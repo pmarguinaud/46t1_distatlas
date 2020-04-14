@@ -83,7 +83,7 @@ sub mpiauto
                   '--prefix-command', '/usr/bin/time -f "mem=%Mkb"',
                  '--', @exec);
 
-  printf ("@mpiauto\n");
+  print "@mpiauto\n";
 
   local $ENV{DR_HOOK} = 0;
   local $ENV{DR_HOOK_NOT_MPI} = 1;

@@ -32,6 +32,64 @@ void zero (atlas::Field & fld)
 
 };
 
+void 
+rotate (const atlas::functionspace::StructuredColumns & fs, 
+        const atlas::StructuredGrid & grid, atlas::FieldSet & pgp)
+{
+  atlas::FieldSet pgpr;
+
+  const auto & grid1 = grid;
+  const auto & grid2 = fs.grid ();
+  const auto & proj1 = grid1.projection ();
+  const auto & proj2 = grid2.projection ();
+  
+  auto vxy = atlas::array::make_view<double,2> (fs.xy ());
+
+  auto normalize = [] (double coslat, atlas::Projection::Jacobian & jac)
+  {
+    jac[0][0] /= coslat;
+    jac[1][0] /= coslat;
+
+    double n0 = sqrt (jac[0][0] * jac[0][0] + jac[0][1] * jac[0][1]);
+    double n1 = sqrt (jac[1][0] * jac[1][0] + jac[1][1] * jac[1][1]);
+ 
+    jac[0][0] /= n0; jac[0][1] /= n0;
+    jac[1][0] /= n1; jac[1][1] /= n1;
+  };
+
+  for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
+    {
+      atlas::PointXY xy = atlas::PointXY (vxy (jloc, 0), vxy (jloc, 1));
+      atlas::PointLonLat lonlat = proj2.lonlat (xy);
+
+      auto dir1 = proj1.getJacobianAtLonLat (lonlat);
+      auto dir2 = proj2.getJacobianAtLonLat (lonlat);
+
+      double coslat = cos (deg2rad * lonlat.lat ());
+
+      normalize (cos (deg2rad * lonlat.lat ()), dir1);
+      normalize (cos (deg2rad * lonlat.lat ()), dir2);
+
+      auto inv1 = dir1.inverse ();
+
+      auto mat = dir2 * inv1;
+
+      for (int jfld = 0; jfld < pgp.size () / 2; jfld++)
+        {
+          auto u = atlas::array::make_view<double,1> (pgp[2*jfld+0]);
+          auto v = atlas::array::make_view<double,1> (pgp[2*jfld+1]);
+
+          double ux = u (jloc), uy = v (jloc);
+
+          u (jloc) = mat[0][0] * ux + mat[0][1] * uy;
+          v (jloc) = mat[1][0] * ux + mat[1][1] * uy;
+        }
+      
+    }
+
+
+}
+
 atlas::FieldSet
 gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::FieldSet & pgp)
 {
@@ -42,8 +100,7 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
   atlas::Field fxy = fs.xy ();
 
   const atlas::StructuredGrid & grid = fs.grid ();
-
-
+  const atlas::Projection & proj = grid.projection ();
 
   fs.haloExchange (pgp);
   fs.haloExchange (fxy);
@@ -78,8 +135,6 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
     }
 
-      printf (" fs.size (), fs.sizeOwned () = %8d, %8d\n", fs.size (), fs.sizeOwned ());
-
   auto iv = atlas::array::make_view<int,1> (fs.index_i ());
   auto jv = atlas::array::make_view<int,1> (fs.index_j ());
 
@@ -87,45 +142,25 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
   const auto & xspc = grid.xspace ();
 
-  printf (" glob = %d\n", glob);
-  printf (" grid.ny () = %8d\n", grid.ny ());
-
-  for (int j = 0; j < grid.ny (); j++)
-    printf (" %8d < %8d\n", j, grid.nx (j));
-
-  printf ("\n");
-
-  printf ("i_begin, i_end\n");
-  for (int j = fs.j_begin (); j < fs.j_end (); j++)
-    printf ("%8d > %8d, %8d\n", j, fs.i_begin (j), fs.i_end (j));
-
-  printf ("\n");
-
-  printf ("i_begin_halo, i_end_halo\n");
-  for (int j = fs.j_begin_halo (); j < fs.j_end_halo (); j++)
-    printf ("%8d > %8d, %8d\n", j, fs.i_begin_halo (j), fs.i_end_halo (j));
-
-  printf ("\n");
-
-  printf (" %8s | %8s, %8s | %8s, %8s | %8s, %8s | %8s, %8s | %8s, %8s | %8s, %8s | %8s, %8s | %8s, %8s |\n", 
-              "jloc", "i", "j", "inw", "jnw", "ine", "jne", "isw", "jsw", "ise", "jse", "i_w", "j_w", "i_e", "j_e", "jlocw", "jloce");
-
-  int inv = std::numeric_limits<int>::max ();
+  int nai = std::numeric_limits<int>::max ();
 
   auto vxy = atlas::array::make_view<double,2> (fxy);
-
-  for (int j = fs.j_begin_halo (); j < fs.j_end_halo (); j++)
-  for (int i = fs.i_begin_halo (j); i < fs.i_end_halo (j); i++)
-    {
-      atlas::idx_t idx = fs.index (i, j);
-      printf (" %8d, %8d > %12.4f, %12.4f\n", i, j, vxy (idx, 0), vxy (idx, 1));
-    }
 
   for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
     {
       int i = iv (jloc) - 1, j = jv (jloc) - 1;
 
       atlas::PointXY xy = atlas::PointXY (vxy (jloc, 0), vxy (jloc, 1));
+      atlas::PointLonLat lonlat = proj.lonlat (xy);
+
+      auto dir = proj.getJacobianAtLonLat (lonlat);
+      auto inv = dir.inverse ();
+
+      double xdx = cos (deg2rad * lonlat.lat ()) * inv.dlon_dx (), xdy = inv.dlat_dx ();
+      double ydx = cos (deg2rad * lonlat.lat ()) * inv.dlon_dy (), ydy = inv.dlat_dy ();
+
+      double bx = sqrt (xdx * xdx + xdy * xdy);
+      double by = sqrt (ydx * ydx + ydy * ydy);
 
       int jm = j - 1, j0 = j + 0, jp = j + 1;
       int im = i - 1, i0 = i + 0, ip = i + 1;
@@ -152,9 +187,9 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
       auto ij_to_index_and_xy = [&] (int i, int j)
       {
         if ((j < fs.j_begin_halo ()) || (fs.j_end_halo () <= j))
-          return inv;
+          return nai;
         if ((i < fs.i_begin_halo (j)) || (fs.i_end_halo (j) <= i))
-          return inv;
+          return nai;
         atlas::idx_t idx = fs.index (i, j);
         return idx;
       };
@@ -181,7 +216,7 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
           if (glob && ((xe - xw) < -180.0))
             xw = xw - 360.0;
 
-          vx (jloc) = (ve - vw) / (xe - xw);
+          vx (jloc) = (ve - vw) / (bx * (xe - xw));
 
           double an = (vxy (jloc, 0) - vxy (jlocne, 0)) / (vxy (jlocnw, 0) - vxy (jlocne, 0));
           double as = (vxy (jloc, 0) - vxy (jlocse, 0)) / (vxy (jlocsw, 0) - vxy (jlocse, 0));
@@ -196,7 +231,7 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
           if (glob && (j == grid.ny () - 1))
             ys = -180.0 + ys;
 
-          vy (jloc) = (vn - vs) / (yn - ys);
+          vy (jloc) = (vn - vs) / (by * (yn - ys));
         }
 
 
@@ -216,4 +251,11 @@ atlas::field::FieldSetImpl * gradient__
   return pgpg_;
 }
 
+void rotate__
+(const atlas::functionspace::detail::StructuredColumns * fs, 
+ const atlas::grid::detail::grid::Structured * grid, atlas::field::FieldSetImpl * pgp)
+{
+  atlas::FieldSet pgp_ (pgp);
+  rotate (atlas::functionspace::StructuredColumns (fs), atlas::StructuredGrid (grid), pgp_);
+}
 

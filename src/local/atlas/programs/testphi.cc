@@ -37,18 +37,8 @@ getJacobian (const atlas::Projection & proj, const atlas::PointLonLat & lonlat0)
 
   atlas::Projection::Jacobian jac;
 
-  jac[0] = {(xy1[0] - xy0[0]) / (cos (D2R (lonlat0.lat ())) * dlon), (xy2[0] - xy0[0]) / dlat};
-  jac[1] = {(xy1[1] - xy0[1]) / (cos (D2R (lonlat0.lat ())) * dlon), (xy2[1] - xy0[1]) / dlat};
-
-#ifdef UNDEF
-  double n0 = sqrt (jac[0][0] * jac[0][0] + jac[0][1] * jac[0][1]);
-  jac[0][0] = jac[0][0] / n0;
-  jac[0][1] = jac[0][1] / n0;
-
-  double n1 = sqrt (jac[1][0] * jac[1][0] + jac[1][1] * jac[1][1]);
-  jac[1][0] = jac[1][0] / n1;
-  jac[1][1] = jac[1][1] / n1;
-#endif
+  jac[0] = {(xy1[0] - xy0[0]) / dlon, (xy2[0] - xy0[0]) / dlat};
+  jac[1] = {(xy1[1] - xy0[1]) / dlon, (xy2[1] - xy0[1]) / dlat};
 
   return jac;
 }
@@ -114,6 +104,11 @@ int main (int argc, char * argv[])
           double lonlat[2], xy[2];
           grid.lonlat (i, j, lonlat);
           auto jacA = proj.getJacobianAtLonLat (atlas::PointLonLat (lonlat[0], lonlat[1]));
+
+          auto jacC = jacA.inverse ();
+
+          auto jacD = jacA * jacC;
+
           auto jacB = getJacobian (proj, atlas::PointLonLat (lonlat[0], lonlat[1]));
 
 
@@ -126,6 +121,10 @@ int main (int argc, char * argv[])
           printJacobian (jacA, "jacA");
           printf ("\n");
           printJacobian (jacB, "jacB");
+          printf ("\n");
+          printJacobian (jacC, "jacC");
+          printf ("\n");
+          printJacobian (jacD, "jacD");
           printf ("\n");
           printJacobianRatio (jacA, jacB);
           printf ("\n");

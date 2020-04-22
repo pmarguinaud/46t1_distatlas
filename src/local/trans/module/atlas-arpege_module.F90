@@ -463,7 +463,6 @@ BLOCK
   YLFLDL (JFLD) = YDFLSL%FIELD (JFLD)
 
   CLNOMA = YLFLDL (JFLD)%NAME ()
-
 ! Global field; zero size if this proc does not write the field
   ISIZEG = 0
   IF (ITO (JFLD) == MYPROC) ISIZEG = INT (YDGRID%SIZE (), JPIM)

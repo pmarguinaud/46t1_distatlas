@@ -12,7 +12,7 @@ implicit none
 
 private :: fckit_owned_object
 
-public :: gradient, rotate
+public :: gradient, rotate, halfdiff
 
 private
 
@@ -26,6 +26,12 @@ end subroutine
 function gradient__ (fs, pgp) bind (C, name="gradient__")
     use iso_c_binding, only: c_ptr
     type (c_ptr) :: gradient__
+    type (c_ptr), value :: fs
+    type (c_ptr), value :: pgp
+end function
+function halfdiff__ (fs, pgp) bind (C,name="halfdiff__")
+    use iso_c_binding, only: c_ptr
+    type (c_ptr) :: halfdiff__
     type (c_ptr), value :: fs
     type (c_ptr), value :: pgp
 end function
@@ -49,6 +55,16 @@ function gradient (fs, pgp) result (pgpg)
                       ! and the implementation object had its count increased to
                       ! avoid deletion
   call pgpg%return ()
+end function
+
+function halfdiff(fs, pgp) result(pgpg)
+  use atlas_functionspace_c_binding
+  class(atlas_functionspace_StructuredColumns), intent(in) :: fs
+  type(atlas_FieldSet),intent(in) :: pgp
+  type(atlas_FieldSet) :: pgpg
+  pgpg = atlas_FieldSet(halfdiff__(fs%CPTR_PGIBUG_A, pgp%CPTR_PGIBUG_A))
+  call pgpg%detach()
+  call pgpg%return()
 end function
 
 end module

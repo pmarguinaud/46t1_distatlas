@@ -58,8 +58,6 @@ atlas::FieldSet halfdiff (const atlas::functionspace::StructuredColumns & fs, co
   {
     auto g = atlas::Field (f.name () + name, t, s);
     g.metadata () = f.metadata (); 
-    std::string CLSUFF;
-    if (f.metadata ().get ("CLSUFF", CLSUFF)) g.metadata ().set ("CLSUFF", CLSUFF + name);
     pgpg.add (g);
   };
 

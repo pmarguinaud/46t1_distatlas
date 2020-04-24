@@ -122,11 +122,6 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
       f2x.metadata () = f1.metadata ();
       f2y.metadata () = f1.metadata ();
 
-      std::string CLSUFF;
-
-      if (f2x.metadata ().get ("CLSUFF", CLSUFF)) f2x.metadata ().set ("CLSUFF", CLSUFF + ".DX");
-      if (f2y.metadata ().get ("CLSUFF", CLSUFF)) f2y.metadata ().set ("CLSUFF", CLSUFF + ".DY");
-
       pgpg.add (f2x);
       pgpg.add (f2y);
 

@@ -29,14 +29,14 @@ cp -f $PACK/data/fort.4.t49 fort.4
 
 RED=.20
 
-ln -sf /scratch/work/marguina/SFX_databases$RED/orography.dir relief.dir
-ln -sf /scratch/work/marguina/SFX_databases$RED/orography.hdr relief.hdr
-ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.dir ecoclimap.dir 
-ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.hdr ecoclimap.hdr 
-ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.dir SAND.dir
-ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.hdr SAND.hdr
-ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.dir CLAY.dir
-ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr CLAY.hdr
+ln -sf /scratch/work/marguina/SFX_databases$RED/orography.dir     SFX.ZS.dir
+ln -sf /scratch/work/marguina/SFX_databases$RED/orography.hdr     SFX.ZS.hdr
+ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.dir     SFX.COVER.dir 
+ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.hdr     SFX.COVER.hdr 
+ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.dir SFX.SAND.dir
+ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.hdr SFX.SAND.hdr
+ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.dir SFX.CLAY.dir
+ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr SFX.CLAY.hdr
 
 
 rm PGD.fa.*
@@ -48,11 +48,10 @@ rm PGD.fa.*
 
 ls -lrt 
 
-exit
-
 lfitools=$PACK/bin/lfitools
 
-$lfitools lfi_alt_index --lfi-file-in HALFDIFF1.fa* --lfi-file-out HALFDIFF1.fa
-$lfitools lfi_alt_pack --lfi-file-in HALFDIFF1.fa --lfi-file-out HALFDIFF1.pack.fa
+$lfitools lfi_alt_index --lfi-file-in PGD.fa.* --lfi-file-out PGD.fa
+$lfitools lfi_alt_pack --lfi-file-in PGD.fa --lfi-file-out PGD.pack.fa
+
 
 

@@ -5,6 +5,7 @@ module interpolationA_mod
 use fckit_owned_object_module, only : fckit_owned_object
 use atlas_functionspace_StructuredColumns_module
 use atlas_fieldset_module, only : atlas_FieldSet
+use atlas_field_module, only : atlas_Field
 use atlas_GridDistribution_module
 
 implicit none
@@ -17,8 +18,12 @@ private
 
 type, extends (fckit_owned_object) :: interpolationA
 contains
-  procedure, public :: interpolate
-  procedure, public :: shuffle
+  generic :: interpolate => interpolate_field, interpolate_fieldset
+  procedure, private :: interpolate_field
+  procedure, private :: interpolate_fieldset
+  generic :: shuffle => shuffle_field, shuffle_fieldset
+  procedure, private :: shuffle_field
+  procedure, private :: shuffle_fieldset
   procedure, public :: getcnt
   procedure, public :: getoff
   procedure, private :: getlen
@@ -30,7 +35,8 @@ end interface
 
 interface
 
-function interpolationA__new (dist1, fs1, dist2, fs2) bind (C, name="interpolationA__new")
+function interpolationA__new (dist1, fs1, dist2, fs2) &
+        & bind (C, name="interpolationA__new")
   use iso_c_binding, only : c_ptr
   type (c_ptr) :: interpolationA__new
   type (c_ptr), value :: dist1
@@ -39,33 +45,38 @@ function interpolationA__new (dist1, fs1, dist2, fs2) bind (C, name="interpolati
   type (c_ptr), value :: fs2
 end function
 
-function interpolationA__interpolate (this, pgp1) bind (C, name="interpolationA__interpolate")
+function interpolationA__interpolate (this, pgp1) &
+        & bind (C, name="interpolationA__interpolate")
   use iso_c_binding, only : c_ptr
   type (c_ptr) :: interpolationA__interpolate
   type (c_ptr), value :: this
   type (c_ptr), value :: pgp1
 end function
 
-function interpolationA__shuffle (this, pgp1) bind (C, name="interpolationA__shuffle")
+function interpolationA__shuffle (this, pgp1) &
+        & bind (C, name="interpolationA__shuffle")
   use iso_c_binding, only : c_ptr
   type (c_ptr) :: interpolationA__shuffle
   type (c_ptr), value :: this
   type (c_ptr), value :: pgp1
 end function
 
-function interpolationA__getlen (this) bind (C, name="interpolationA__getlen")
+function interpolationA__getlen (this) &
+       & bind (C, name="interpolationA__getlen")
   use iso_c_binding, only : c_ptr
   integer :: interpolationA__getlen
   type (c_ptr), value :: this
 end function
 
-subroutine interpolationA__getcnt (this, cnt) bind (C, name="interpolationA__getcnt")
+subroutine interpolationA__getcnt (this, cnt) &
+          & bind (C, name="interpolationA__getcnt")
   use iso_c_binding, only : c_ptr, c_int
   type (c_ptr), value :: this
   integer (c_int), dimension(*) :: cnt
 end subroutine
 
-subroutine interpolationA__getoff (this, off) bind (C, name="interpolationA__getoff")
+subroutine interpolationA__getoff (this, off) &
+         & bind (C, name="interpolationA__getoff")
   use iso_c_binding, only : c_ptr, c_int
   type (c_ptr), value :: this
   integer (c_int), dimension(*) :: off
@@ -86,7 +97,7 @@ function interpolationA__ctor (dist1, fs1, dist2, fs2) result (this)
   call this%return ()
 end function
 
-function interpolate (this, pgp1) result (pgp2)
+function interpolate_fieldset (this, pgp1) result (pgp2)
   class (interpolationA), intent (in) :: this
   type (atlas_FieldSet), intent(in) :: pgp1  
   type (atlas_FieldSet) :: pgp2
@@ -97,13 +108,43 @@ function interpolate (this, pgp1) result (pgp2)
   call pgp2%return ()
 end function
 
-function shuffle (this, pgp1) result (pgp2)
+function interpolate_field (this, f1) result (f2)
+  class (interpolationA), intent (in) :: this
+  type (atlas_Field), intent(in) :: f1  
+  type (atlas_Field) :: f2
+  type (atlas_FieldSet) :: pgp1, pgp2
+  pgp1 = atlas_FieldSet ()
+  call pgp1%add (f1)
+  pgp2 = atlas_FieldSet (interpolationA__interpolate (this%CPTR_PGIBUG_A, pgp1%CPTR_PGIBUG_A)) 
+  f2 = pgp2%field (1)
+  call pgp2%detach () 
+  call pgp2%final ()
+  call pgp1%final ()
+  call f2%return ()
+end function
+
+function shuffle_fieldset (this, pgp1) result (pgp2)
   class (interpolationA), intent (in) :: this
   type (atlas_FieldSet), intent(in) :: pgp1  
   type (atlas_FieldSet) :: pgp2
   pgp2 = atlas_FieldSet (interpolationA__shuffle (this%CPTR_PGIBUG_A, pgp1%CPTR_PGIBUG_A)) 
   call pgp2%detach () 
   call pgp2%return ()
+end function
+
+function shuffle_field (this, f1) result (f2)
+  class (interpolationA), intent (in) :: this
+  type (atlas_Field), intent(in) :: f1  
+  type (atlas_Field) :: f2
+  type (atlas_FieldSet) :: pgp1, pgp2
+  pgp1 = atlas_FieldSet ()
+  call pgp1%add (f1)
+  pgp2 = atlas_FieldSet (interpolationA__shuffle (this%CPTR_PGIBUG_A, pgp1%CPTR_PGIBUG_A)) 
+  f2 = pgp2%field (1)
+  call pgp2%detach () 
+  call pgp2%final ()
+  call pgp1%final ()
+  call f2%return ()
 end function
 
 function getlen (this)

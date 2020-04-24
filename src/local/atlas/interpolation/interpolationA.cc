@@ -591,6 +591,8 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
 // TODO: Collapse loops
   for (int jfld = 0; jfld < infld; jfld++)
     {
+      T zundef = std::numeric_limits<T>::max ();
+      bool llundef = pgp1[jfld].metadata ().get ("undef", zundef);
       auto v2  = atlas::array::make_view<T,1> (pgp2 [jfld]);
       auto v2e = atlas::array::make_view<T,1> (pgp2e[jfld]);
 #pragma omp parallel for
@@ -598,17 +600,18 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
         {
           int ioff = getOff (jloc2); 
           int icnt = getCnt (jloc2); 
-          if (icnt == 0)
-            {
-              v2 (jloc2) = 0.0; // TODO: Should be UNDEF
-            }
-          else
-            {
-              T t = 0;
-              for (int jj = 0; jj < icnt; jj++)
+
+          int jcnt = 0;
+          T t = 0;
+
+          for (int jj = 0; jj < icnt; jj++)
+            if (v2e (ioff+jj) != zundef)
+              {
                 t += v2e (ioff+jj);
-              v2 (jloc2) = t / double (icnt);
-            }
+                jcnt++;
+              }
+
+          v2 (jloc2) = jcnt > 0 ? t / static_cast<T> (jcnt) : zundef;
         } 
     } 
 

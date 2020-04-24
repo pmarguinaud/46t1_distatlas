@@ -31,6 +31,15 @@ RED=.20
 
 ln -sf /scratch/work/marguina/SFX_databases$RED/orography.dir relief.dir
 ln -sf /scratch/work/marguina/SFX_databases$RED/orography.hdr relief.hdr
+ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.dir ecoclimap.dir 
+ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.hdr ecoclimap.hdr 
+ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.dir SAND.dir
+ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.hdr SAND.hdr
+ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.dir CLAY.dir
+ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr CLAY.hdr
+
+
+rm PGD.fa.*
 
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \

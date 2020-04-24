@@ -31,6 +31,11 @@ public:
     return desc[jloc2].ioff;
   }
 
+  int getLen () const
+  {
+    return desc.size ();
+  }
+
   int getMissing () const
   {
     return isize_miss;
@@ -117,6 +122,11 @@ public:
     return get ()->getOff (jloc2);
   }
 
+  int getLen () const
+  {
+    return get ()->getLen ();
+  }
+
   template <typename T> atlas::FieldSet
   interpolate (const atlas::FieldSet & pgp1) const
   {
@@ -130,5 +140,9 @@ interpolationAimpl * interpolationA__new
   (const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
    const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *);
 atlas::field::FieldSetImpl * interpolationA__interpolate (interpolationAimpl *, atlas::field::FieldSetImpl *);
+atlas::field::FieldSetImpl * interpolationA__shuffle (interpolationAimpl *, atlas::field::FieldSetImpl *);
+int interpolationA__getlen (const interpolationAimpl *);
+void interpolationA__getcnt (const interpolationAimpl *, int cnt[]);
+void interpolationA__getoff (const interpolationAimpl *, int off[]);
 };
 

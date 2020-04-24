@@ -641,3 +641,30 @@ atlas::field::FieldSetImpl * interpolationA__interpolate
   return pgp2_;
 }
 
+atlas::field::FieldSetImpl * interpolationA__shuffle 
+(interpolationAimpl * This , atlas::field::FieldSetImpl * pgp1)
+{
+  atlas::FieldSet pgp2 = This->shuffle<double> (atlas::FieldSet (pgp1));
+  atlas::field::FieldSetImpl * pgp2_ = pgp2.get ();
+  pgp2_->attach ();
+  return pgp2_;
+}
+
+int interpolationA__getlen (const interpolationAimpl * This)
+{
+  return This->getLen ();
+}
+
+void interpolationA__getcnt (const interpolationAimpl * This, int cnt[])
+{
+#pragma omp parallel for
+  for (size_t i = 0; i < This->getLen (); i++)
+    cnt[i] = This->getCnt (i);
+}
+
+void interpolationA__getoff (const interpolationAimpl * This, int off[])
+{
+#pragma omp parallel for
+  for (size_t i = 0; i < This->getLen (); i++)
+    off[i] = This->getOff (i);
+}

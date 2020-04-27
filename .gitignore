@@ -36,3 +36,5 @@ slurm-*.out
 *.x
 *.fa*
 linux_bind.txt
+*.hdr
+*.dir

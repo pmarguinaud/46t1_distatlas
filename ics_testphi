@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-export GMK_THREADS=1
+export GMK_THREADS=16
 #
 type gmkpack >/dev/null 2>&1
 if [ $? -ne 0 ] ; then
@@ -142,14 +142,14 @@ end_of_testphi_libs
 # LOW-LEVEL LIBRARIES (from top to bottom) :
 cat <<end_of_testphi_sys> $GMKWRKDIR/.testphi_sys
 -L/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/x2.9 -lgribex
--L/home/gmap/mrpm/marguina/atlas-intel/install/lib -latlas_f -latlas -leckit_linalg -leckit_maths -leckit_mpi -leckit_option -leckit -leckit_web -lfckit
+-L/home/gmap/mrpm/marguina/atlas-intel18/install/lib -latlas_f -latlas -leckit_linalg -leckit_maths -leckit_mpi -leckit_option -leckit -leckit_web -lfckit
 -L/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/netcdf-4.7.2/lib -lnetcdff -lnetcdf
 -L/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/eccodes-2.14.0/lib -leccodes_f90 -leccodes
 -L/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/x2.9 -libmdummy
 end_of_testphi_sys
 # LOADER AND OPTIONS :
 cat <<end_of_testphi_load> $GMKWRKDIR/.testphi_load
-/home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/INTELMPI184274MT/mpic++ /home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/I185274/icpc -std=c++11 -v -fp-stack-check -qopenmp -qopenmp-threadprivate compat -shared-intel -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/eccodes-2.14.0/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/lapack-3.2.1/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/netcdf-4.7.2/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/x2.9 -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/hdf5-1.10.5/lib -Wl,-rpath,/home/gmap/mrpm/marguina/atlas-intel/install/lib
+/home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/INTELMPI184274MT/mpic++ /home/gmap/mrpm/marguina/install/gmkpack_support/wrapper/I185274/icpc -std=c++11 -v -fp-stack-check -qopenmp -qopenmp-threadprivate compat -shared-intel -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/eccodes-2.14.0/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/lapack-3.2.1/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/netcdf-4.7.2/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/x2.9 -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI184274MT/hdf5-1.10.5/lib -Wl,-rpath,/home/gmap/mrpm/marguina/atlas-intel18/install/lib
 end_of_testphi_load
 #
 #

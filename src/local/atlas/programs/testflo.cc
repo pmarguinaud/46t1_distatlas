@@ -92,7 +92,7 @@ int main (int argc, char * argv[])
 
   atlas::FieldSet xyz = getXYZ (fs);
 
-  gradient (fs, xyz);
+  gradient<double> (fs, xyz);
 
   atlas::Library::instance ().finalise ();
 

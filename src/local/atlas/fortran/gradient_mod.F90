@@ -5,6 +5,7 @@ module gradient_mod
 use fckit_owned_object_module, only : fckit_owned_object
 use atlas_functionspace_StructuredColumns_module
 use atlas_fieldset_module, only : atlas_FieldSet
+use atlas_Field_module, only : atlas_Field
 use atlas_Grid_module, only : atlas_StructuredGrid
 use atlas_GridDistribution_module
 
@@ -13,6 +14,10 @@ implicit none
 private :: fckit_owned_object
 
 public :: gradient, rotate, halfdiff
+
+interface gradient
+  module procedure :: gradient_field, gradient_fieldset
+end interface 
 
 private
 
@@ -46,7 +51,7 @@ subroutine rotate (fs, grid, pgp)
   call rotate__ (fs%CPTR_PGIBUG_A, grid%CPTR_PGIBUG_A, pgp%CPTR_PGIBUG_A)
 end subroutine
 
-function gradient (fs, pgp) result (pgpg)
+function gradient_fieldset (fs, pgp) result (pgpg)
   type (atlas_functionspace_StructuredColumns), intent(in) :: fs
   type (atlas_FieldSet), intent(in) :: pgp  
   type (atlas_FieldSet) :: pgpg
@@ -55,6 +60,18 @@ function gradient (fs, pgp) result (pgpg)
                       ! and the implementation object had its count increased to
                       ! avoid deletion
   call pgpg%return ()
+end function
+
+function gradient_field (fs, f) result (pgpg)
+  type (atlas_functionspace_StructuredColumns), intent(in) :: fs
+  type (atlas_Field), intent(in) :: f
+  type (atlas_FieldSet) :: pgp, pgpg
+  pgp = atlas_FieldSet ()
+  call pgp%add (f)
+  pgpg = atlas_FieldSet (gradient__ (fs%CPTR_PGIBUG_A, pgp%CPTR_PGIBUG_A)) 
+  call pgpg%detach () 
+  call pgpg%return ()
+  call pgp%final ()
 end function
 
 function halfdiff(fs, pgp) result(pgpg)

@@ -3,13 +3,14 @@
 #include "atlas/grid.h"
 #include "atlas/functionspace.h"
 
+template <typename T>
 void 
 rotate (const atlas::functionspace::StructuredColumns & fs, 
         const atlas::StructuredGrid & grid, atlas::FieldSet & pgp);
 
+template <typename T>
 atlas::FieldSet
 gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::FieldSet & pgp);
-
 
 extern "C"
 {

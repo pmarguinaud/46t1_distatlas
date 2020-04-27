@@ -24,7 +24,8 @@ PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
 ls -l
 
 
-cp -f $PACK/data/fort.4.t49 fort.4
+#cp -f $PACK/data/fort.4.t49  fort.4
+ cp -f $PACK/data/fort.4.t149 fort.4
 
 
 RED=.20
@@ -39,7 +40,7 @@ ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.dir SFX.CLAY.dir
 ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr SFX.CLAY.hdr
 
 
-rm PGD.fa.*
+rm PGD1.fa.* PGD2.fa.*
 
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
@@ -50,8 +51,11 @@ ls -lrt
 
 lfitools=$PACK/bin/lfitools
 
-$lfitools lfi_alt_index --lfi-file-in PGD.fa.* --lfi-file-out PGD.fa
-$lfitools lfi_alt_pack --lfi-file-in PGD.fa --lfi-file-out PGD.pack.fa
+for p in PGD2
+do
+$lfitools lfi_alt_index --lfi-file-in $p.fa.* --lfi-file-out $p.fa
+$lfitools lfi_alt_pack --lfi-file-in $p.fa --lfi-file-out $p.pack.fa
+done
 
 
 

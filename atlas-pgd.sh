@@ -30,22 +30,29 @@ ls -l
 
 RED=.20
 
-ln -sf /scratch/work/marguina/SFX_databases$RED/orography.dir     SFX.ZS.dir
-ln -sf /scratch/work/marguina/SFX_databases$RED/orography.hdr     SFX.ZS.hdr
-ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.dir     SFX.COVER.dir 
-ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.hdr     SFX.COVER.hdr 
-ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.dir SFX.SAND.dir
-ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.hdr SFX.SAND.hdr
-ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.dir SFX.CLAY.dir
-ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr SFX.CLAY.hdr
+ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimapI_covers_param.bin ecoclimapI_covers_param.bin
+ln -sf /scratch/work/marguina/SFX_databases$RED/orography.dir               SFX.ZS.dir
+ln -sf /scratch/work/marguina/SFX_databases$RED/orography.hdr               SFX.ZS.hdr
+ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.dir               SFX.COVER.dir 
+ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimap.hdr               SFX.COVER.hdr 
+ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.dir           SFX.SAND.dir
+ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.hdr           SFX.SAND.hdr
+ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.dir           SFX.CLAY.dir
+ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr           SFX.CLAY.hdr
 
 
 rm PGD1.fa.* PGD2.fa.*
 
+if [ 1 -eq 1 ]
+then
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 4 -openmp 10 -- $PACK/bin/ATLAS_PGD
+else
+OMP_NUM_THREADS=1 gdb --ex=run --args $PACK/bin/ATLAS_PGD
+exit
+fi
 
 ls -lrt 
 

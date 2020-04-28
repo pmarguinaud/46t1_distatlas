@@ -248,6 +248,7 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
           T yn = vxy (jlocnw, 1);
           T ys = vxy (jlocsw, 1);
 
+          // For global domain, assume x, y in degrees
           if (glob && (j == 0))
             yn = +180.0 - yn;
           if (glob && (j == grid.ny () - 1))
@@ -270,6 +271,13 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
               vx (jloc) = ifx == 2 ? zundef : (ve - vw) / (bx * (xe - xw));
               vy (jloc) = ify == 2 ? zundef : (vn - vs) / (by * (yn - ys));
+
+              if (v0 != zundef)
+                {
+                  if (vx (jloc) == zundef) vx (jloc) = 0.0;
+                  if (vy (jloc) == zundef) vy (jloc) = 0.0;
+                }
+
             }
           else
             {
@@ -278,7 +286,6 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
             }
 
         }
-
 
     }
 

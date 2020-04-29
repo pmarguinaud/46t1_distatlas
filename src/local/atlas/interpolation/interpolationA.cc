@@ -13,6 +13,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <functional>
 #include <vector>
 #include <map>
 #include <string>  
@@ -565,8 +566,32 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
   }
 }
 
+template <typename T, typename O, typename E>
+void interpolationAimpl::reduce (atlas::array::ArrayView<T,1> & v2, atlas::array::ArrayView<T,1> & v2e, 
+                                 const size_t size2, T t0, T zundef, E eval, O op) const
+{
+#pragma omp parallel for
+  for (int jloc2 = 0; jloc2 < size2; jloc2++)
+    {
+      int ioff = getOff (jloc2); 
+      int icnt = getCnt (jloc2); 
+  
+      int jcnt = 0;
+      T t = t0;
+  
+      for (int jj = 0; jj < icnt; jj++)
+        if (v2e (ioff+jj) != zundef)
+          {
+            t = op (t, v2e (ioff+jj));
+            jcnt++;
+          }
+  
+      v2 (jloc2) = eval (jcnt, t, zundef);  
+    } 
+}
+
 template <typename T> atlas::FieldSet
-interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
+interpolationAimpl::interpolate (const atlas::FieldSet & pgp1, const opt_t opt) const
 {
   ATLAS_TRACE_SCOPE ("interpolationAimpl::interpolate")
   {
@@ -595,24 +620,25 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
       bool llundef = pgp1[jfld].metadata ().get ("undef", zundef);
       auto v2  = atlas::array::make_view<T,1> (pgp2 [jfld]);
       auto v2e = atlas::array::make_view<T,1> (pgp2e[jfld]);
-#pragma omp parallel for
-      for (int jloc2 = 0; jloc2 < size2; jloc2++)
+
+      switch (opt)
         {
-          int ioff = getOff (jloc2); 
-          int icnt = getCnt (jloc2); 
-
-          int jcnt = 0;
-          T t = 0;
-
-          for (int jj = 0; jj < icnt; jj++)
-            if (v2e (ioff+jj) != zundef)
-              {
-                t += v2e (ioff+jj);
-                jcnt++;
-              }
-
-          v2 (jloc2) = jcnt > 0 ? t / static_cast<T> (jcnt) : zundef;
-        } 
+          case opt_t::OPT_AVG:
+            reduce (v2, v2e, size2, static_cast<T> (0), zundef, 
+                   [] (int jcnt, T t, T zundef) { return jcnt > 0 ? t / static_cast<T> (jcnt) : zundef; },
+                   [] (T t1, T t2) { return t1 + t2; });
+          break;
+          case opt_t::OPT_MIN:
+            reduce (v2, v2e, size2, std::numeric_limits<T>::max (), zundef, 
+                   [] (int jcnt, T t, T zundef) { return jcnt > 0 ? t : zundef; },
+                   [] (T t1, T t2) { return std::min (t1, t2); });
+          break;
+          case opt_t::OPT_MAX:
+            reduce (v2, v2e, size2, std::numeric_limits<T>::min (), zundef, 
+                   [] (int jcnt, T t, T zundef) { return jcnt > 0 ? t : zundef; },
+                   [] (T t1, T t2) { return std::max (t1, t2); });
+          break;
+        }
     } 
 
   return pgp2;
@@ -620,7 +646,7 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1) const
 }
 
 #define DEF(T) \
-template atlas::FieldSet interpolationAimpl::interpolate<T>  (const atlas::FieldSet &) const; 
+template atlas::FieldSet interpolationAimpl::interpolate<T>  (const atlas::FieldSet &, const opt_t) const; 
 
 DEF (double);
 
@@ -636,9 +662,9 @@ interpolationAimpl * interpolationA__new
 }
 
 atlas::field::FieldSetImpl * interpolationA__interpolate 
-(interpolationAimpl * This , atlas::field::FieldSetImpl * pgp1)
+(interpolationAimpl * This , atlas::field::FieldSetImpl * pgp1, const int opt)
 {
-  atlas::FieldSet pgp2 = This->interpolate<double> (atlas::FieldSet (pgp1));
+  atlas::FieldSet pgp2 = This->interpolate<double> (atlas::FieldSet (pgp1), static_cast<const interpolationAimpl::opt_t> (opt));
   atlas::field::FieldSetImpl * pgp2_ = pgp2.get ();
   pgp2_->attach ();
   return pgp2_;

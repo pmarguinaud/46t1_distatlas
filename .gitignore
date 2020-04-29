@@ -38,3 +38,4 @@ slurm-*.out
 linux_bind.txt
 *.hdr
 *.dir
+*.bin

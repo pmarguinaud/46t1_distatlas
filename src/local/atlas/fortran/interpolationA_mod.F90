@@ -2,6 +2,7 @@
 
 module interpolationA_mod
 
+use iso_c_binding, only : c_int
 use fckit_owned_object_module, only : fckit_owned_object
 use atlas_functionspace_StructuredColumns_module
 use atlas_fieldset_module, only : atlas_FieldSet
@@ -11,6 +12,7 @@ use atlas_GridDistribution_module
 implicit none
 
 private :: fckit_owned_object
+
 
 public :: interpolationA
 
@@ -27,6 +29,9 @@ contains
   procedure, public :: getcnt
   procedure, public :: getoff
   procedure, private :: getlen
+  procedure, public :: opt_avg 
+  procedure, public :: opt_min
+  procedure, public :: opt_max
 end type
 
 interface interpolationA
@@ -45,12 +50,13 @@ function interpolationA__new (dist1, fs1, dist2, fs2) &
   type (c_ptr), value :: fs2
 end function
 
-function interpolationA__interpolate (this, pgp1) &
+function interpolationA__interpolate (this, pgp1, opt) &
         & bind (C, name="interpolationA__interpolate")
-  use iso_c_binding, only : c_ptr
+  use iso_c_binding, only : c_ptr, c_int
   type (c_ptr) :: interpolationA__interpolate
   type (c_ptr), value :: this
   type (c_ptr), value :: pgp1
+  integer (c_int), value :: opt
 end function
 
 function interpolationA__shuffle (this, pgp1) &
@@ -97,25 +103,35 @@ function interpolationA__ctor (dist1, fs1, dist2, fs2) result (this)
   call this%return ()
 end function
 
-function interpolate_fieldset (this, pgp1) result (pgp2)
+function interpolate_fieldset (this, pgp1, opt) result (pgp2)
+  use iso_c_binding, only : c_int
   class (interpolationA), intent (in) :: this
   type (atlas_FieldSet), intent(in) :: pgp1  
+  integer (c_int), optional, intent (in) :: opt
   type (atlas_FieldSet) :: pgp2
-  pgp2 = atlas_FieldSet (interpolationA__interpolate (this%CPTR_PGIBUG_A, pgp1%CPTR_PGIBUG_A)) 
+  integer (c_int) :: opt_
+  opt_ = 0
+  if (present (opt)) opt_ = opt
+  pgp2 = atlas_FieldSet (interpolationA__interpolate (this%CPTR_PGIBUG_A, pgp1%CPTR_PGIBUG_A, opt_)) 
   call pgp2%detach () ! Required here, because this comes from a temporary atlas::FieldSet object
                       ! and the implementation object had its count increased to
                       ! avoid deletion
   call pgp2%return ()
 end function
 
-function interpolate_field (this, f1) result (f2)
+function interpolate_field (this, f1, opt) result (f2)
+  use iso_c_binding, only : c_int
   class (interpolationA), intent (in) :: this
   type (atlas_Field), intent(in) :: f1  
+  integer (c_int), optional, intent (in) :: opt
   type (atlas_Field) :: f2
   type (atlas_FieldSet) :: pgp1, pgp2
+  integer (c_int) :: opt_
+  opt_ = 0
+  if (present (opt)) opt_ = opt
   pgp1 = atlas_FieldSet ()
   call pgp1%add (f1)
-  pgp2 = atlas_FieldSet (interpolationA__interpolate (this%CPTR_PGIBUG_A, pgp1%CPTR_PGIBUG_A)) 
+  pgp2 = atlas_FieldSet (interpolationA__interpolate (this%CPTR_PGIBUG_A, pgp1%CPTR_PGIBUG_A, opt_)) 
   f2 = pgp2%field (1)
   call pgp2%detach () 
   call pgp2%final ()
@@ -168,6 +184,22 @@ function getoff (this) result (off)
   allocate (off (this%getlen ()))
   call interpolationA__getoff (this%CPTR_PGIBUG_A, off)
 end function
+
+integer (c_int) function opt_avg (this)
+  class (interpolationA), intent (in) :: this
+  opt_avg = 0
+end function
+
+integer (c_int) function opt_min (this)
+  class (interpolationA), intent (in) :: this
+  opt_min = 1
+end function
+
+integer (c_int) function opt_max (this)
+  class (interpolationA), intent (in) :: this
+  opt_max = 2
+end function
+
 
 end module
 

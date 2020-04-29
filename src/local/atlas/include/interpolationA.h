@@ -11,6 +11,13 @@ class interpolationAimpl : public atlas::util::Object
 {
 public:
 
+  enum class opt_t
+  {
+    OPT_AVG=0,
+    OPT_MIN=1,
+    OPT_MAX=2
+  };
+
   interpolationAimpl () = default;
   interpolationAimpl (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
                       const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
@@ -19,7 +26,7 @@ public:
   atlas::FieldSet shuffle (const atlas::FieldSet &) const;
 
   template <typename T> atlas::FieldSet
-  interpolate (const atlas::FieldSet &) const;
+  interpolate (const atlas::FieldSet &, const opt_t = opt_t::OPT_AVG) const;
 
   int getCnt (int jloc2) const
   {
@@ -42,6 +49,11 @@ public:
   }
 
 private:
+
+  template <typename T, typename O, typename E>
+  void reduce (atlas::array::ArrayView<T,1> & v2, atlas::array::ArrayView<T,1> & v2e, 
+               const size_t size2, T t0, T zundef, E eval, O op) const;
+
   size_t isize_recv = 0;
   size_t isize_send = 0;
   size_t isize_miss = 0;
@@ -97,6 +109,8 @@ private:
 class interpolationA : public atlas::util::ObjectHandle<interpolationAimpl>
 {
 public:
+  using opt_t = interpolationAimpl::opt_t;
+
   interpolationA () = default;
 
   interpolationA 
@@ -128,9 +142,9 @@ public:
   }
 
   template <typename T> atlas::FieldSet
-  interpolate (const atlas::FieldSet & pgp1) const
+  interpolate (const atlas::FieldSet & pgp1, const opt_t = opt_t::OPT_AVG) const
   {
-    return get ()->interpolate<T> (pgp1);
+    return get ()->interpolate<T> (pgp1, opt_t);
   }
 };
 
@@ -139,7 +153,7 @@ extern "C"
 interpolationAimpl * interpolationA__new 
   (const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
    const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *);
-atlas::field::FieldSetImpl * interpolationA__interpolate (interpolationAimpl *, atlas::field::FieldSetImpl *);
+atlas::field::FieldSetImpl * interpolationA__interpolate (interpolationAimpl *, atlas::field::FieldSetImpl *, const int);
 atlas::field::FieldSetImpl * interpolationA__shuffle (interpolationAimpl *, atlas::field::FieldSetImpl *);
 int interpolationA__getlen (const interpolationAimpl *);
 void interpolationA__getcnt (const interpolationAimpl *, int cnt[]);

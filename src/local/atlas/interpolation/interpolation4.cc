@@ -643,6 +643,8 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
 // TODO: Collapse loops
   for (int jfld = 0; jfld < infld; jfld++)
     {
+      T zundef = std::numeric_limits<T>::max ();
+      bool llundef = pgp1[jfld].metadata ().get ("undef", zundef);
       auto v2  = atlas::array::make_view<T,1> (pgp2 [jfld]);
       auto v2e = atlas::array::make_view<T,1> (pgp2e[jfld]);
 #pragma omp parallel for
@@ -652,9 +654,24 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
           int kise = 4*(jloc2+1)+ISE-1, jise = isort[kise];
           int kinw = 4*(jloc2+1)+INW-1, jinw = isort[kinw];
           int kine = 4*(jloc2+1)+INE-1, jine = isort[kine];
-          v2 (jloc2) = 
-            weights4.values[kisw] * v2e[jisw] + weights4.values[kise] * v2e[jise] + 
-            weights4.values[kinw] * v2e[jinw] + weights4.values[kine] * v2e[jine];
+
+          if (llundef)
+            {
+              T vs = static_cast<T> (0);
+              double ws = 0.0;
+              auto add = [&] (T v, double w) { if (v != zundef) { vs = vs + v; ws = ws + w; } };
+              add (v2e[jisw], weights4.values[kisw]);
+              add (v2e[jise], weights4.values[kise]);
+              add (v2e[jinw], weights4.values[kinw]);
+              add (v2e[jine], weights4.values[kine]);
+              v2 (jloc2) = ws > 0.0 ? vs / ws : zundef;
+            }
+          else
+            {
+              v2 (jloc2) = 
+                weights4.values[kisw] * v2e[jisw] + weights4.values[kise] * v2e[jise] + 
+                weights4.values[kinw] * v2e[jinw] + weights4.values[kine] * v2e[jine];
+            }
         }
     }
 

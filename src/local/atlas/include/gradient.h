@@ -12,6 +12,9 @@ template <typename T>
 atlas::FieldSet
 gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::FieldSet & pgp);
 
+template <typename T>
+atlas::FieldSet halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::FieldSet & pgp);
+
 extern "C"
 {
 void rotate__
@@ -19,4 +22,5 @@ void rotate__
  const atlas::grid::detail::grid::Structured * grid, atlas::field::FieldSetImpl * pgp);
 atlas::field::FieldSetImpl * gradient__
 (const atlas::functionspace::detail::StructuredColumns * fs, atlas::field::FieldSetImpl * pgp);
+atlas::field::FieldSetImpl * halfdiff__ (atlas::functionspace::detail::StructuredColumns *, atlas::field::FieldSetImpl *);
 };

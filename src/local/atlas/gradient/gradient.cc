@@ -71,9 +71,7 @@ rotate (const atlas::functionspace::StructuredColumns & fs,
       normalize (cos (deg2rad * lonlat.lat ()), dir1);
       normalize (cos (deg2rad * lonlat.lat ()), dir2);
 
-      auto inv1 = dir1.inverse ();
-
-      auto mat = dir2 * inv1;
+      auto mat = dir1 * dir2.inverse ();
 
       for (int jfld = 0; jfld < pgp.size () / 2; jfld++)
         {
@@ -102,6 +100,7 @@ rotate (const atlas::functionspace::StructuredColumns & fs,
                u (jloc) = mat[0][0] * ux + mat[0][1] * uy;
                v (jloc) = mat[1][0] * ux + mat[1][1] * uy;
             }
+
         }
       
     }

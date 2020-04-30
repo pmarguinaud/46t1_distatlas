@@ -186,7 +186,7 @@ interpolationAimpl::interpolationAimpl
       atlas::gidx_t iglo2 = (iy2 >= 0) && (ix2 >= 0) ? grid2.ij2gidx (ix2, iy2) : -1;
 
       int iprc2 = iglo2 >= 0 ? dist2.partition (iglo2) : -1;
-      
+
       prcglo1[jloc1].iglo1 = iglo1;
       prcglo1[jloc1].iglo2 = iglo2;
       prcglo1[jloc1].iprc2 = iprc2;
@@ -575,7 +575,7 @@ void interpolationAimpl::reduce (atlas::array::ArrayView<T,1> & v2, atlas::array
     {
       int ioff = getOff (jloc2); 
       int icnt = getCnt (jloc2); 
-  
+
       int jcnt = 0;
       T t = t0;
   

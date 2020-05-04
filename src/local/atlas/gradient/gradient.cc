@@ -5,6 +5,7 @@
 #include "atlas/array.h"
 #include "atlas/parallel/mpi/mpi.h"
 #include "atlas/functionspace.h"
+#include "atlas/runtime/Exception.h"
 
 #include <limits>
 #include <stdio.h>
@@ -172,8 +173,8 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
       double xdx = cos (deg2rad * lonlat.lat ()) * inv.dlon_dx (), xdy = inv.dlat_dx ();
       double ydx = cos (deg2rad * lonlat.lat ()) * inv.dlon_dy (), ydy = inv.dlat_dy ();
 
-      double bx = sqrt (xdx * xdx + xdy * xdy);
-      double by = sqrt (ydx * ydx + ydy * ydy);
+      double bx = deg2rad * sqrt (xdx * xdx + xdy * xdy);
+      double by = deg2rad * sqrt (ydx * ydx + ydy * ydy);
 
       int jm = j - 1, j0 = j + 0, jp = j + 1;
       int im = i - 1, i0 = i + 0, ip = i + 1;
@@ -292,6 +293,185 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 }
 
 
+template <typename T>
+atlas::FieldSet
+halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::FieldSet & pgp)
+{
+  auto & comm = atlas::mpi::comm ();
+  int irank = comm.rank (), nproc = comm.size ();
+
+  atlas::FieldSet pgpg;
+  atlas::Field fxy = fs.xy ();
+
+  const atlas::StructuredGrid & grid = fs.grid ();
+  const atlas::Projection & proj = grid.projection ();
+
+  fs.haloExchange (pgp);
+  fs.haloExchange (fxy);
+
+  auto t = atlas::array::DataType::kind<T> ();
+  auto s = atlas::array::make_shape (fs.size ());
+  
+  auto addf = [&] (const atlas::Field & f, const std::string & name)
+  {
+    std::string n = f.name () + name;
+    auto g = atlas::Field (n, t, s);
+    g.metadata () = f.metadata (); 
+    g.rename (n);
+    pgpg.add (g);
+  };
+
+  for (int jfld = 0; jfld < pgp.size (); jfld++)
+    {
+      addf (pgp[jfld], ".XP"); addf (pgp[jfld], ".XM");
+      addf (pgp[jfld], ".YP"); addf (pgp[jfld], ".YM");
+    }
+
+  auto iv = atlas::array::make_view<int,1> (fs.index_i ());
+  auto jv = atlas::array::make_view<int,1> (fs.index_j ());
+
+  bool glob  = grid.domain ().global ();
+
+  const auto & xspc = grid.xspace ();
+
+  int nai = std::numeric_limits<int>::max ();
+
+  auto vxy = atlas::array::make_view<double,2> (fxy);
+
+  // TODO : use OpenMP
+  for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
+    {
+      int i = iv (jloc) - 1, j = jv (jloc) - 1;
+
+      atlas::PointXY xy = atlas::PointXY (vxy (jloc, 0), vxy (jloc, 1));
+      atlas::PointLonLat lonlat = proj.lonlat (xy);
+
+      auto dir = proj.getJacobianAtLonLat (lonlat);
+      auto inv = dir.inverse ();
+
+      double xdx = cos (deg2rad * lonlat.lat ()) * inv.dlon_dx (), xdy = inv.dlat_dx ();
+      double ydx = cos (deg2rad * lonlat.lat ()) * inv.dlon_dy (), ydy = inv.dlat_dy ();
+
+      double bx = deg2rad * sqrt (xdx * xdx + xdy * xdy);
+      double by = deg2rad * sqrt (ydx * ydx + ydy * ydy);
+
+      int jm = j - 1, j0 = j + 0, jp = j + 1;
+      int im = i - 1, i0 = i + 0, ip = i + 1;
+
+      auto xj_to_imip = [&] (double x, int j, int & im, int & ip)
+      {
+        int js = glob ? std::min (grid.ny () - 1, std::max (0, j)) : j; // Pole
+        double dx = xspc.dx ()[js];
+        double xmin = xspc.xmin ()[js];
+        im = floor ((x - xmin) / dx); 
+        ip = im + 1;
+      };
+
+      int inw, jnw = jm, ine, jne = jm,  
+          isw, jsw = jp, ise, jse = jp,
+          i_w, j_w = j0, i_e, j_e = j0;
+
+      xj_to_imip (xy.x (), jnw, inw, ine);
+      xj_to_imip (xy.x (), jsw, isw, ise);
+
+      i_w = i - 1;
+      i_e = i + 1;
+
+      auto ij_to_index_and_xy = [&] (int i, int j)
+      {
+        if ((j < fs.j_begin_halo ()) || (fs.j_end_halo () <= j))
+          return nai;
+        if ((i < fs.i_begin_halo (j)) || (fs.i_end_halo (j) <= i))
+          return nai;
+        atlas::idx_t idx = fs.index (i, j);
+        return idx;
+      };
+
+      atlas::idx_t 
+           jlocnw = ij_to_index_and_xy (inw, jnw), 
+           jlocne = ij_to_index_and_xy (ine, jne),
+           jlocsw = ij_to_index_and_xy (isw, jsw), 
+           jlocse = ij_to_index_and_xy (ise, jse),
+           jloc_w = ij_to_index_and_xy (i_w, j_w),
+           jloc_e = ij_to_index_and_xy (i_e, j_e),
+           jloc_0 = jloc;
+
+      for (int jfld = 0; jfld < pgp.size (); jfld++)
+        {
+          T zundef = std::numeric_limits<T>::max ();
+          bool llundef = pgp[jfld].metadata ().get ("undef", zundef);
+
+          auto v   = atlas::array::make_view<T,1> (pgp [  jfld  ]);
+          auto vxp = atlas::array::make_view<T,1> (pgpg[4*jfld+0]);
+          auto vxm = atlas::array::make_view<T,1> (pgpg[4*jfld+1]);
+          auto vyp = atlas::array::make_view<T,1> (pgpg[4*jfld+2]);
+          auto vym = atlas::array::make_view<T,1> (pgpg[4*jfld+3]);
+
+          T v0 = v (jloc_0);
+
+          if (llundef && (v0 == zundef))
+            {
+              vxp (jloc) = zundef;
+              vxm (jloc) = zundef;
+              vyp (jloc) = zundef;
+              vym (jloc) = zundef;
+              continue;
+            }
+
+          vxp (jloc) = 0.0;
+          vxm (jloc) = 0.0;
+          vyp (jloc) = 0.0;
+          vym (jloc) = 0.0;
+
+          T vw = v (jloc_w);
+          T ve = v (jloc_e);
+          double x0 = vxy (jloc_0, 0);
+          double xw = vxy (jloc_w, 0);
+          double xe = vxy (jloc_e, 0);
+
+          if (glob && ((xe - xw) < -180.0))
+            xw = xw - 360.0;
+          if (glob && ((xe - x0) < -180.0))
+            x0 = x0 - 360.0;
+
+          double an = (vxy (jloc, 0) - vxy (jlocne, 0)) / (vxy (jlocnw, 0) - vxy (jlocne, 0));
+          double as = (vxy (jloc, 0) - vxy (jlocse, 0)) / (vxy (jlocsw, 0) - vxy (jlocse, 0));
+   
+          double vn = an * v (jlocnw) + (1.0 - an) * v (jlocne);
+          double vs = as * v (jlocsw) + (1.0 - as) * v (jlocse);
+          T y0 = vxy (jloc_0, 1);
+          T yn = vxy (jlocnw, 1);
+          T ys = vxy (jlocsw, 1);
+
+          // For global domain, assume x, y in degrees
+          if (glob && (j == 0))
+            yn = +180.0 - yn;
+          if (glob && (j == grid.ny () - 1))
+            ys = -180.0 + ys;
+
+          if (llundef)
+            {
+              if (ve != zundef) vxp (jloc) = (ve - v0) / (bx * (xe - x0));
+              if (vw != zundef) vxm (jloc) = (vw - v0) / (bx * (xw - x0));
+              if (vn != zundef) vyp (jloc) = (vn - v0) / (by * (yn - y0));
+              if (vs != zundef) vym (jloc) = (vs - v0) / (by * (ys - y0));
+            }
+          else
+            {
+              vxp (jloc) = (ve - v0) / (bx * (xe - x0));
+              vxm (jloc) = (vw - v0) / (bx * (xw - x0));
+              vyp (jloc) = (vn - v0) / (by * (yn - y0));
+              vym (jloc) = (vs - v0) / (by * (ys - y0));
+            }
+
+        }
+
+    }
+
+  return pgpg;
+}
+
+
 atlas::field::FieldSetImpl * gradient__
 (const atlas::functionspace::detail::StructuredColumns * fs, atlas::field::FieldSetImpl * pgp)
 {
@@ -307,5 +487,13 @@ void rotate__
 {
   atlas::FieldSet pgp_ (pgp);
   rotate<double> (atlas::functionspace::StructuredColumns (fs), atlas::StructuredGrid (grid), pgp_);
+}
+
+atlas::field::FieldSetImpl * halfdiff__ (atlas::functionspace::detail::StructuredColumns * fs, atlas::field::FieldSetImpl * pgp)
+{
+  atlas::FieldSet pgpg = halfdiff<double> (atlas::functionspace::StructuredColumns (fs), atlas::FieldSet (pgp));
+  atlas::field::FieldSetImpl * pgpg_ = pgpg.get (); 
+  pgpg_->attach (); 
+  return pgpg_;
 }
 

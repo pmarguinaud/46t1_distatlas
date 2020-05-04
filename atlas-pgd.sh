@@ -25,8 +25,8 @@ ls -l
 
 
 #cp -f $PACK/data/fort.4.t49  fort.4
-#cp -f $PACK/data/fort.4.t149 fort.4
- cp -f $PACK/data/fort.4.t149c2.2 fort.4
+ cp -f $PACK/data/fort.4.t149 fort.4
+#cp -f $PACK/data/fort.4.t149c2.2 fort.4
 #cp -f $PACK/data/fort.4.t32c2.4 fort.4
 
 

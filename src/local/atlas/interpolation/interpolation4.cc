@@ -635,7 +635,7 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
       auto f1 = pgp1[jfld];
       auto f2 = atlas::Field (f1.name (),
                               atlas::array::DataType::kind<T> (), 
-                              atlas::array::make_shape (size2));
+                              atlas::array::make_shape (fs2.size ()));
       f2.metadata () = f1.metadata ();
       pgp2.add (f2);
     }
@@ -659,7 +659,7 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
             {
               T vs = static_cast<T> (0);
               double ws = 0.0;
-              auto add = [&] (T v, double w) { if (v != zundef) { vs = vs + v; ws = ws + w; } };
+              auto add = [&] (T v, double w) { if (v != zundef) { vs = vs + w * v; ws = ws + w; } };
               add (v2e[jisw], weights4.values[kisw]);
               add (v2e[jise], weights4.values[kise]);
               add (v2e[jinw], weights4.values[kinw]);

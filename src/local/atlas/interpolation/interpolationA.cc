@@ -608,7 +608,7 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1, const opt_t opt) 
       auto f1 = pgp1[jfld];
       auto f2 = atlas::Field (f1.name (),
                               atlas::array::DataType::kind<T> (), 
-                              atlas::array::make_shape (size2));
+                              atlas::array::make_shape (fs2.size ()));
       f2.metadata () = f1.metadata ();
       pgp2.add (f2);
     }

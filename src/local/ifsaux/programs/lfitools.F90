@@ -117,6 +117,8 @@ ELSE
 !     CALL LFITESTWRITE
     CASE ('lfixxx')
       CALL LFIXXX
+    CASE ('lfiyyy')
+      CALL LFIYYY
     CASE DEFAULT
       PRINT *, 'Unknown program '//TRIM(CLNAME)
       CALL USAGE

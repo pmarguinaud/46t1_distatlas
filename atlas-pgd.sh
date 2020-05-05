@@ -66,7 +66,7 @@ ls -lrt
 
 lfitools=$PACK/bin/lfitools
 
-for p in PGD2
+for p in PGD1 PGD2
 do
 $lfitools lfi_alt_index --lfi-file-in $p.fa.* --lfi-file-out $p.fa
 $lfitools lfi_alt_pack --lfi-file-in $p.fa --lfi-file-out $p.pack.fa

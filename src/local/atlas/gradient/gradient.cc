@@ -327,6 +327,19 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
       addf (pgp[jfld], ".YP"); addf (pgp[jfld], ".YM");
     }
 
+
+  auto d = atlas::array::DataType::kind<double> (); 
+
+  auto xp = atlas::Field ("XP", d, s); auto vxp = atlas::array::make_view<double,1> (xp);
+  auto xm = atlas::Field ("XM", d, s); auto vxm = atlas::array::make_view<double,1> (xm);
+  auto yp = atlas::Field ("YP", d, s); auto vyp = atlas::array::make_view<double,1> (yp);
+  auto ym = atlas::Field ("YM", d, s); auto vym = atlas::array::make_view<double,1> (ym);
+
+  pgpg.add (xp);
+  pgpg.add (xm);
+  pgpg.add (yp);
+  pgpg.add (ym);
+
   auto iv = atlas::array::make_view<int,1> (fs.index_i ());
   auto jv = atlas::array::make_view<int,1> (fs.index_j ());
 
@@ -396,72 +409,79 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
            jloc_e = ij_to_index_and_xy (i_e, j_e),
            jloc_0 = jloc;
 
+      double x0 = vxy (jloc_0, 0);
+      double xw = vxy (jloc_w, 0);
+      double xe = vxy (jloc_e, 0);
+
+      if (glob && ((xe - xw) < -180.0))
+        xw = xw - 360.0;
+      if (glob && ((xe - x0) < -180.0))
+        x0 = x0 - 360.0;
+
+      double an = (vxy (jloc, 0) - vxy (jlocne, 0)) / (vxy (jlocnw, 0) - vxy (jlocne, 0));
+      double as = (vxy (jloc, 0) - vxy (jlocse, 0)) / (vxy (jlocsw, 0) - vxy (jlocse, 0));
+   
+      T y0 = vxy (jloc_0, 1);
+      T yn = vxy (jlocnw, 1);
+      T ys = vxy (jlocsw, 1);
+
+      // For global domain, assume x, y in degrees
+      if (glob && (j == 0))
+        yn = +180.0 - yn;
+      if (glob && (j == grid.ny () - 1))
+        ys = -180.0 + ys;
+
+      vxp (jloc) = (bx * (xe - x0));
+      vxm (jloc) = (bx * (xw - x0));
+      vyp (jloc) = (by * (yn - y0));
+      vym (jloc) = (by * (ys - y0));
+
       for (int jfld = 0; jfld < pgp.size (); jfld++)
         {
           T zundef = std::numeric_limits<T>::max ();
           bool llundef = pgp[jfld].metadata ().get ("undef", zundef);
 
-          auto v   = atlas::array::make_view<T,1> (pgp [  jfld  ]);
-          auto vxp = atlas::array::make_view<T,1> (pgpg[4*jfld+0]);
-          auto vxm = atlas::array::make_view<T,1> (pgpg[4*jfld+1]);
-          auto vyp = atlas::array::make_view<T,1> (pgpg[4*jfld+2]);
-          auto vym = atlas::array::make_view<T,1> (pgpg[4*jfld+3]);
+          auto fv   = atlas::array::make_view<T,1> (pgp [  jfld  ]);
+          auto fvxp = atlas::array::make_view<T,1> (pgpg[4*jfld+0]);
+          auto fvxm = atlas::array::make_view<T,1> (pgpg[4*jfld+1]);
+          auto fvyp = atlas::array::make_view<T,1> (pgpg[4*jfld+2]);
+          auto fvym = atlas::array::make_view<T,1> (pgpg[4*jfld+3]);
 
-          T v0 = v (jloc_0);
+          T v0 = fv (jloc_0);
 
           if (llundef && (v0 == zundef))
             {
-              vxp (jloc) = zundef;
-              vxm (jloc) = zundef;
-              vyp (jloc) = zundef;
-              vym (jloc) = zundef;
+              fvxp (jloc) = zundef;
+              fvxm (jloc) = zundef;
+              fvyp (jloc) = zundef;
+              fvym (jloc) = zundef;
               continue;
             }
 
-          vxp (jloc) = 0.0;
-          vxm (jloc) = 0.0;
-          vyp (jloc) = 0.0;
-          vym (jloc) = 0.0;
+          fvxp (jloc) = 0.0;
+          fvxm (jloc) = 0.0;
+          fvyp (jloc) = 0.0;
+          fvym (jloc) = 0.0;
 
-          T vw = v (jloc_w);
-          T ve = v (jloc_e);
-          double x0 = vxy (jloc_0, 0);
-          double xw = vxy (jloc_w, 0);
-          double xe = vxy (jloc_e, 0);
+          T vw = fv (jloc_w);
+          T ve = fv (jloc_e);
 
-          if (glob && ((xe - xw) < -180.0))
-            xw = xw - 360.0;
-          if (glob && ((xe - x0) < -180.0))
-            x0 = x0 - 360.0;
-
-          double an = (vxy (jloc, 0) - vxy (jlocne, 0)) / (vxy (jlocnw, 0) - vxy (jlocne, 0));
-          double as = (vxy (jloc, 0) - vxy (jlocse, 0)) / (vxy (jlocsw, 0) - vxy (jlocse, 0));
-   
-          double vn = an * v (jlocnw) + (1.0 - an) * v (jlocne);
-          double vs = as * v (jlocsw) + (1.0 - as) * v (jlocse);
-          T y0 = vxy (jloc_0, 1);
-          T yn = vxy (jlocnw, 1);
-          T ys = vxy (jlocsw, 1);
-
-          // For global domain, assume x, y in degrees
-          if (glob && (j == 0))
-            yn = +180.0 - yn;
-          if (glob && (j == grid.ny () - 1))
-            ys = -180.0 + ys;
+          double vn = an * fv (jlocnw) + (1.0 - an) * fv (jlocne);
+          double vs = as * fv (jlocsw) + (1.0 - as) * fv (jlocse);
 
           if (llundef)
             {
-              if (ve != zundef) vxp (jloc) = (ve - v0) / (bx * (xe - x0));
-              if (vw != zundef) vxm (jloc) = (vw - v0) / (bx * (xw - x0));
-              if (vn != zundef) vyp (jloc) = (vn - v0) / (by * (yn - y0));
-              if (vs != zundef) vym (jloc) = (vs - v0) / (by * (ys - y0));
+              if (ve != zundef) fvxp (jloc) = (ve - v0);
+              if (vw != zundef) fvxm (jloc) = (vw - v0);
+              if (vn != zundef) fvyp (jloc) = (vn - v0);
+              if (vs != zundef) fvym (jloc) = (vs - v0);
             }
           else
             {
-              vxp (jloc) = (ve - v0) / (bx * (xe - x0));
-              vxm (jloc) = (vw - v0) / (bx * (xw - x0));
-              vyp (jloc) = (vn - v0) / (by * (yn - y0));
-              vym (jloc) = (vs - v0) / (by * (ys - y0));
+              fvxp (jloc) = (ve - v0);
+              fvxm (jloc) = (vw - v0);
+              fvyp (jloc) = (vn - v0);
+              fvym (jloc) = (vs - v0);
             }
 
         }

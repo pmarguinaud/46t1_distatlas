@@ -50,7 +50,7 @@ then
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 4 -openmp 10 -- $PACK/bin/ATLAS_PGD
+  --wrap --wrap-stdeo -nn $NN -nnp 7 -openmp 10 -- $PACK/bin/ATLAS_PGD
 elif [ 0 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \

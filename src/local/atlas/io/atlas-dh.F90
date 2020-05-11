@@ -154,6 +154,7 @@ NPROC = YLCOMM%SIZE ()
 
 YLGRID = YDFSSC%GRID ()
 
+
 YLFLD = ATLAS_FIELD (NAME=TRIM (CDFILE), KIND=JPRB, SHAPE=[YDFSSC%SIZE ()])
 
 CALL YLFLD%DATA (ZDATA)
@@ -161,7 +162,7 @@ CALL YLFLD%DATA (ZDATA)
 ALLOCATE (ISIZE (NPROC), IOFFS (NPROC + 1))
 
 CALL YLCOMM%ALLGATHER ([YDFSSC%SIZE_OWNED ()], ISIZE, 1, &
-                     & [(1, I = 0, YLCOMM%SIZE ())],      &
+                     & [(1, I = 0, YLCOMM%SIZE ())],     &
                      & [(I, I = 0, YLCOMM%SIZE ())]);
 
 IOFFS (1) = 0

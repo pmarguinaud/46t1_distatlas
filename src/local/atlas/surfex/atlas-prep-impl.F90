@@ -147,12 +147,13 @@ DO JFLD = 1, YLFLDS1PRE%SIZE ()
              & .OR. ((ZDATA /= ZUNDEF) .AND. (ZFRAC == 0._JPRB)))
       CALL YLCOMM%ALLREDUCE (ICNT, FCKIT_MPI_SUM ())
 
+      WRITE (*, '(A16," | ",A16," | ",I16)') YLFLD%NAME (), YLFRC%NAME (), ICNT
+
       IF (ICNT == 0) THEN
         IFLD2FRC (JFLD) = JFRC
         EXIT
       ENDIF
 
-      WRITE (*, '(A16," | ",A16," | ",I16)') YLFLD%NAME (), YLFRC%NAME (), ICNT
 
       CALL YLFRC%FINAL ()
 

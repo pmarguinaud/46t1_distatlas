@@ -39,3 +39,11 @@ linux_bind.txt
 *.hdr
 *.dir
 *.bin
+PRE1
+PRE2
+PGD1
+PGD2
+PRE1.*
+PRE2.*
+PGD1.*
+PGD2.*

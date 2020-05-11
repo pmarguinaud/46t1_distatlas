@@ -43,7 +43,7 @@ ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.dir           SFX.
 ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr           SFX.CLAY.hdr
 
 
-rm PGD1.fa.* PGD2.fa.*
+rm PGD2*
 
 if [ 1 -eq 1 ]
 then
@@ -68,8 +68,8 @@ lfitools=$PACK/bin/lfitools
 
 for p in PGD2
 do
-$lfitools lfi_alt_index --lfi-file-in $p.fa.* --lfi-file-out $p.fa
-$lfitools lfi_alt_pack --lfi-file-in $p.fa --lfi-file-out $p.pack.fa
+$lfitools lfi_alt_index --lfi-file-in $p.* --lfi-file-out $p
+$lfitools lfi_alt_pack --lfi-file-in $p --lfi-file-out $p.pack
 done
 
 

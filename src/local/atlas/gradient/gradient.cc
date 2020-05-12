@@ -1,5 +1,6 @@
 #include "gradient.h"
 
+#include "atlas/runtime/Trace.h"
 #include "atlas/util/Config.h"
 #include "atlas/grid.h"
 #include "atlas/array.h"
@@ -113,10 +114,14 @@ template <typename T>
 atlas::FieldSet
 gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::FieldSet & pgp)
 {
+  atlas::FieldSet pgpg;
+
+  ATLAS_TRACE_SCOPE ("gradient")
+  {
+
   auto & comm = atlas::mpi::comm ();
   int irank = comm.rank (), nproc = comm.size ();
 
-  atlas::FieldSet pgpg;
   atlas::Field fxy = fs.xy ();
 
   const atlas::StructuredGrid & grid = fs.grid ();
@@ -289,6 +294,8 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
     }
 
+  }
+
   return pgpg;
 }
 
@@ -297,10 +304,14 @@ template <typename T>
 atlas::FieldSet
 halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::FieldSet & pgp)
 {
+  atlas::FieldSet pgpg;
+
+  ATLAS_TRACE_SCOPE ("halfdiff")
+  {
+
   auto & comm = atlas::mpi::comm ();
   int irank = comm.rank (), nproc = comm.size ();
 
-  atlas::FieldSet pgpg;
   atlas::Field fxy = fs.xy ();
 
   const atlas::StructuredGrid & grid = fs.grid ();
@@ -487,6 +498,8 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
         }
 
     }
+
+  }
 
   return pgpg;
 }

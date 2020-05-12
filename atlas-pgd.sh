@@ -25,12 +25,14 @@ ls -l
 
 
 #cp -f $PACK/data/fort.4.t49  fort.4
- cp -f $PACK/data/fort.4.t149 fort.4
+#cp -f $PACK/data/fort.4.t149 fort.4
 #cp -f $PACK/data/fort.4.t149c2.2 fort.4
 #cp -f $PACK/data/fort.4.t32c2.4 fort.4
+ cp -f $PACK/data/fort.4.t1798 fort.4
 
 
 RED=.20
+RED=""
 
 ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimapI_covers_param.bin ecoclimapI_covers_param.bin
 ln -sf /scratch/work/marguina/SFX_databases$RED/orography.dir               SFX.ZS.dir
@@ -47,10 +49,15 @@ rm PGD2*
 
 if [ 1 -eq 1 ]
 then
+
+export ATLAS_TRACE=1
+export ATLAS_TRACE_REPORT=1
+
+
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 7 -openmp 10 -- $PACK/bin/ATLAS_PGD
+  --wrap --wrap-stdeo -nn $NN -nnp 4 -openmp 10 -- $PACK/bin/ATLAS_PGD
 elif [ 0 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \

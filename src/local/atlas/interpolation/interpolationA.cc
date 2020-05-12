@@ -8,7 +8,6 @@
 #include "atlas/array.h"
 #include "atlas/parallel/mpi/mpi.h"
 #include "atlas/functionspace.h"
-#include "atlas/runtime/Trace.h"
 
 #include <iostream>
 #include <fstream>

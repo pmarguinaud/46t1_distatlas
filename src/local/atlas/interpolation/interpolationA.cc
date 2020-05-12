@@ -513,20 +513,30 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
       ioffs += infld * isize;
     }
 
+
+  std::vector<atlas::array::ArrayView<T,1>> fv1, fv2e;
+
+  fv1 .reserve (pgp1 .size ());
+  fv2e.reserve (pgp2e.size ());
+
+  for (auto & f : pgp1)
+    fv1 .emplace_back (atlas::array::make_view<T,1> (f));
+  for (auto & f : pgp2e)
+    fv2e.emplace_back (atlas::array::make_view<T,1> (f));
+
+
   for (int ii = 0; ii < insend; ii++)
     {
       size_t ioffs = ioffs_all[ii];
       int iproc = yl_send[ii].iproc;
       size_t isize = yl_send[ii].isize;
-
-// TODO: Collapse loops
+#pragma omp parallel for collapse (2)
       for (int jfld = 0; jfld < infld; jfld++)
-        {
-          auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
-#pragma omp parallel for
-          for (int jj = 0; jj < isize; jj++)
+        for (int jj = 0; jj < isize; jj++)
+          {
+            auto & v = fv1[jfld];
             zbufs[ioffs+jfld*isize+jj] = v (yl_send[ii].iloc[jj]);
-        }
+          }
       reqsend[ii] = comm.iSend (&zbufs[ioffs], infld * isize, iproc, 101);
     }
 
@@ -548,14 +558,13 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
       size_t ioffr = ioffr_all[ii];
       size_t isize = yl_recv[ii].isize;
 
-// TODO: Collapse loops
+#pragma omp parallel for collapse (2)
       for (int jfld = 0; jfld < infld; jfld++)
-        {
-          auto v = atlas::array::make_view<T,1> (pgp2e[jfld]);
-#pragma omp parallel for
-          for (int jj = 0; jj < isize; jj++)
+        for (int jj = 0; jj < isize; jj++)
+          {
+            auto & v = fv2e[jfld];
             v (isort[ioffr+jj]) = zbufr[ioffr*infld+jfld*isize+jj];
-        }
+          }
     }
 
   for (int i = 0; i < insend; i++)

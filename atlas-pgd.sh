@@ -31,7 +31,7 @@ ls -l
 #cp -f $PACK/data/fort.4.t1798 fort.4
 
 
-if [ 0 -eq 1 ]
+if [ 1 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.t149 fort.4
   RED=.20

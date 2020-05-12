@@ -155,7 +155,7 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
     }
 
 
-  // Prepare arrays of views
+  // Prepare vectors of views
 
   std::vector<atlas::array::ArrayView<T,1>> pv;
   std::vector<atlas::array::ArrayView<T,1>> pvx;
@@ -378,7 +378,7 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
   pgpg.add (yp);
   pgpg.add (ym);
 
-  // Prepare arrays of views
+  // Prepare vectors of views
 
   std::vector<atlas::array::ArrayView<T,1>> pv, pvxp, pvxm, pvyp, pvym;
 

@@ -621,7 +621,6 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1, const opt_t opt) 
       pgp2.add (f2);
     }
 
-// TODO: Collapse loops
   for (int jfld = 0; jfld < infld; jfld++)
     {
       T zundef = std::numeric_limits<T>::max ();

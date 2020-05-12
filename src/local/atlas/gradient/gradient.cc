@@ -154,27 +154,31 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
       zero (f2y);
     }
 
-  std::vector<atlas::array::ArrayView<T,1>> av;
-  std::vector<atlas::array::ArrayView<T,1>> avx;
-  std::vector<atlas::array::ArrayView<T,1>> avy;
 
-  std::vector<bool> allundef;
-  std::vector<T> azundef;
+  // Prepare arrays of views
 
-  av .reserve (pgp.size ());
-  avx.reserve (pgp.size ());
-  avy.reserve (pgp.size ());
-  allundef.reserve (pgp.size ());
-  azundef.reserve (pgp.size ());
+  std::vector<atlas::array::ArrayView<T,1>> pv;
+  std::vector<atlas::array::ArrayView<T,1>> pvx;
+  std::vector<atlas::array::ArrayView<T,1>> pvy;
+
+  std::vector<bool> lundef;
+  std::vector<T> zundef;
+
+  pv .reserve (pgp.size ());
+  pvx.reserve (pgp.size ());
+  pvy.reserve (pgp.size ());
+
+  lundef.reserve (pgp.size ());
+  zundef.reserve (pgp.size ());
 
   for (int jfld = 0; jfld < pgp.size (); jfld++)
     {
-      av .emplace_back (atlas::array::make_view<T,1> (pgp [  jfld  ]));
-      avx.emplace_back (atlas::array::make_view<T,1> (pgpg[2*jfld+0]));
-      avy.emplace_back (atlas::array::make_view<T,1> (pgpg[2*jfld+1]));
+      pv .emplace_back (atlas::array::make_view<T,1> (pgp [  jfld  ]));
+      pvx.emplace_back (atlas::array::make_view<T,1> (pgpg[2*jfld+0]));
+      pvy.emplace_back (atlas::array::make_view<T,1> (pgpg[2*jfld+1]));
 
-      azundef.push_back (std::numeric_limits<T>::max ());
-      allundef.push_back (pgp[jfld].metadata ().get ("undef", azundef.back ()));
+      zundef.push_back (std::numeric_limits<T>::max ());
+      lundef.push_back (pgp[jfld].metadata ().get ("undef", zundef.back ()));
     }
 
   auto iv = atlas::array::make_view<int,1> (fs.index_i ());
@@ -188,6 +192,7 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
   auto vxy = atlas::array::make_view<double,2> (fxy);
 
+#pragma omp parallel for
   for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
     {
       int i = iv (jloc) - 1, j = jv (jloc) - 1;
@@ -247,12 +252,12 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
       for (int jfld = 0; jfld < pgp.size (); jfld++)
         {
-          T zundef = azundef[jfld];
-          bool llundef = allundef[jfld];
+          T zundf = zundef[jfld];
+          bool lundf = lundef[jfld];
 
-          auto & v  = av [jfld];
-          auto & vx = avx[jfld];
-          auto & vy = avy[jfld];
+          auto & v  = pv [jfld];
+          auto & vx = pvx[jfld];
+          auto & vy = pvy[jfld];
 
           T v0 = v (jloc_0);
           T vw = v (jloc_w);
@@ -281,28 +286,28 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
           if (glob && (j == grid.ny () - 1))
             ys = -180.0 + ys;
 
-          if (llundef)
+          if (lundf)
             {
               int ifx = 0, ify = 0;
 
-              if (v0 != zundef)
+              if (v0 != zundf)
                 {
-                  if (ve == zundef) { ve = v0; xe = x0; ifx++; }
-                  if (vw == zundef) { vw = v0; xw = x0; ifx++; }
-                  if (vn == zundef) { vn = v0; yn = y0; ify++; }
-                  if (vs == zundef) { vs = v0; ys = y0; ify++; }
+                  if (ve == zundf) { ve = v0; xe = x0; ifx++; }
+                  if (vw == zundf) { vw = v0; xw = x0; ifx++; }
+                  if (vn == zundf) { vn = v0; yn = y0; ify++; }
+                  if (vs == zundf) { vs = v0; ys = y0; ify++; }
                 }
 
-              if ((ve == zundef) || (vw == zundef)) ifx = 2;
-              if ((vn == zundef) || (vs == zundef)) ify = 2;
+              if ((ve == zundf) || (vw == zundf)) ifx = 2;
+              if ((vn == zundf) || (vs == zundf)) ify = 2;
 
-              vx (jloc) = ifx == 2 ? zundef : (ve - vw) / (bx * (xe - xw));
-              vy (jloc) = ify == 2 ? zundef : (vn - vs) / (by * (yn - ys));
+              vx (jloc) = ifx == 2 ? zundf : (ve - vw) / (bx * (xe - xw));
+              vy (jloc) = ify == 2 ? zundf : (vn - vs) / (by * (yn - ys));
 
-              if (v0 != zundef)
+              if (v0 != zundf)
                 {
-                  if (vx (jloc) == zundef) vx (jloc) = 0.0;
-                  if (vy (jloc) == zundef) vy (jloc) = 0.0;
+                  if (vx (jloc) == zundf) vx (jloc) = 0.0;
+                  if (vy (jloc) == zundf) vy (jloc) = 0.0;
                 }
 
             }
@@ -373,6 +378,34 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
   pgpg.add (yp);
   pgpg.add (ym);
 
+  // Prepare arrays of views
+
+  std::vector<atlas::array::ArrayView<T,1>> pv, pvxp, pvxm, pvyp, pvym;
+
+  std::vector<bool> lundef;
+  std::vector<T> zundef;
+
+  pv  .reserve (pgp.size ());
+  pvxp.reserve (pgp.size ());
+  pvxm.reserve (pgp.size ());
+  pvyp.reserve (pgp.size ());
+  pvym.reserve (pgp.size ());
+
+  lundef.reserve (pgp.size ());
+  zundef.reserve (pgp.size ());
+
+  for (int jfld = 0; jfld < pgp.size (); jfld++)
+    {
+      pv  .emplace_back (atlas::array::make_view<T,1> (pgp [  jfld  ]));
+      pvxp.emplace_back (atlas::array::make_view<T,1> (pgpg[4*jfld+0]));
+      pvxm.emplace_back (atlas::array::make_view<T,1> (pgpg[4*jfld+1]));
+      pvyp.emplace_back (atlas::array::make_view<T,1> (pgpg[4*jfld+2]));
+      pvym.emplace_back (atlas::array::make_view<T,1> (pgpg[4*jfld+3]));
+
+      zundef.push_back (std::numeric_limits<T>::max ());
+      lundef.push_back (pgp[jfld].metadata ().get ("undef", zundef.back ()));
+    }
+
   auto iv = atlas::array::make_view<int,1> (fs.index_i ());
   auto jv = atlas::array::make_view<int,1> (fs.index_j ());
 
@@ -384,7 +417,7 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
   auto vxy = atlas::array::make_view<double,2> (fxy);
 
-  // TODO : use OpenMP
+#pragma omp parallel for
   for (int jloc = 0; jloc < fs.sizeOwned (); jloc++)
     {
       int i = iv (jloc) - 1, j = jv (jloc) - 1;
@@ -471,23 +504,23 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
       for (int jfld = 0; jfld < pgp.size (); jfld++)
         {
-          T zundef = std::numeric_limits<T>::max ();
-          bool llundef = pgp[jfld].metadata ().get ("undef", zundef);
+          T zundf = zundef[jfld];
+          bool lundf = lundef[jfld];
 
-          auto fv   = atlas::array::make_view<T,1> (pgp [  jfld  ]);
-          auto fvxp = atlas::array::make_view<T,1> (pgpg[4*jfld+0]);
-          auto fvxm = atlas::array::make_view<T,1> (pgpg[4*jfld+1]);
-          auto fvyp = atlas::array::make_view<T,1> (pgpg[4*jfld+2]);
-          auto fvym = atlas::array::make_view<T,1> (pgpg[4*jfld+3]);
+          auto & fv   = pv  [jfld];
+          auto & fvxp = pvxp[jfld];
+          auto & fvxm = pvxm[jfld];
+          auto & fvyp = pvyp[jfld];
+          auto & fvym = pvym[jfld];
 
           T v0 = fv (jloc_0);
 
-          if (llundef && (v0 == zundef))
+          if (lundf && (v0 == zundf))
             {
-              fvxp (jloc) = zundef;
-              fvxm (jloc) = zundef;
-              fvyp (jloc) = zundef;
-              fvym (jloc) = zundef;
+              fvxp (jloc) = zundf;
+              fvxm (jloc) = zundf;
+              fvyp (jloc) = zundf;
+              fvym (jloc) = zundf;
               continue;
             }
 
@@ -502,12 +535,12 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
           double vn = an * fv (jlocnw) + (1.0 - an) * fv (jlocne);
           double vs = as * fv (jlocsw) + (1.0 - as) * fv (jlocse);
 
-          if (llundef)
+          if (lundf)
             {
-              if (ve != zundef) fvxp (jloc) = (ve - v0);
-              if (vw != zundef) fvxm (jloc) = (vw - v0);
-              if (vn != zundef) fvyp (jloc) = (vn - v0);
-              if (vs != zundef) fvym (jloc) = (vs - v0);
+              if (ve != zundf) fvxp (jloc) = (ve - v0);
+              if (vw != zundf) fvxm (jloc) = (vw - v0);
+              if (vn != zundf) fvyp (jloc) = (vn - v0);
+              if (vs != zundf) fvym (jloc) = (vs - v0);
             }
           else
             {

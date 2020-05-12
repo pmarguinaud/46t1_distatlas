@@ -154,6 +154,29 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
       zero (f2y);
     }
 
+  std::vector<atlas::array::ArrayView<T,1>> av;
+  std::vector<atlas::array::ArrayView<T,1>> avx;
+  std::vector<atlas::array::ArrayView<T,1>> avy;
+
+  std::vector<bool> allundef;
+  std::vector<T> azundef;
+
+  av .reserve (pgp.size ());
+  avx.reserve (pgp.size ());
+  avy.reserve (pgp.size ());
+  allundef.reserve (pgp.size ());
+  azundef.reserve (pgp.size ());
+
+  for (int jfld = 0; jfld < pgp.size (); jfld++)
+    {
+      av .emplace_back (atlas::array::make_view<T,1> (pgp [  jfld  ]));
+      avx.emplace_back (atlas::array::make_view<T,1> (pgpg[2*jfld+0]));
+      avy.emplace_back (atlas::array::make_view<T,1> (pgpg[2*jfld+1]));
+
+      azundef.push_back (std::numeric_limits<T>::max ());
+      allundef.push_back (pgp[jfld].metadata ().get ("undef", azundef.back ()));
+    }
+
   auto iv = atlas::array::make_view<int,1> (fs.index_i ());
   auto jv = atlas::array::make_view<int,1> (fs.index_j ());
 
@@ -224,13 +247,12 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
       for (int jfld = 0; jfld < pgp.size (); jfld++)
         {
-          T zundef = std::numeric_limits<T>::max ();
-          bool llundef = pgp[jfld].metadata ().get ("undef", zundef);
+          T zundef = azundef[jfld];
+          bool llundef = allundef[jfld];
 
-
-          auto v  = atlas::array::make_view<T,1> (pgp [  jfld  ]);
-          auto vx = atlas::array::make_view<T,1> (pgpg[2*jfld+0]);
-          auto vy = atlas::array::make_view<T,1> (pgpg[2*jfld+1]);
+          auto & v  = av [jfld];
+          auto & vx = avx[jfld];
+          auto & vy = avy[jfld];
 
           T v0 = v (jloc_0);
           T vw = v (jloc_w);

@@ -25,14 +25,14 @@ ls -l
 
 
 #cp -f $PACK/data/fort.4.t49  fort.4
-#cp -f $PACK/data/fort.4.t149 fort.4
+ cp -f $PACK/data/fort.4.t149 fort.4
 #cp -f $PACK/data/fort.4.t149c2.2 fort.4
 #cp -f $PACK/data/fort.4.t32c2.4 fort.4
- cp -f $PACK/data/fort.4.t1798 fort.4
+#cp -f $PACK/data/fort.4.t1798 fort.4
 
 
-RED=.20
 RED=""
+RED=.20
 
 ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimapI_covers_param.bin ecoclimapI_covers_param.bin
 ln -sf /scratch/work/marguina/SFX_databases$RED/orography.dir               SFX.ZS.dir

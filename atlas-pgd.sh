@@ -63,7 +63,7 @@ export ATLAS_TRACE_REPORT=1
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 32 -openmp 8 -- $PACK/bin/ATLAS_PGD
+  --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 16 -- $PACK/bin/ATLAS_PGD
 elif [ 0 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \

@@ -36,7 +36,9 @@ then
   cp -f $PACK/data/fort.4.t149 fort.4
   RED=.20
 else
-  cp -f $PACK/data/fort.4.t1798 fort.4
+# cp -f $PACK/data/fort.4.t1798 fort.4
+# cp -f $PACK/data/fort.4.t4000 fort.4
+  cp -f $PACK/data/fort.4.t8000 fort.4
   RED=""
 fi
 
@@ -63,7 +65,7 @@ export ATLAS_TRACE_REPORT=1
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 16 -- $PACK/bin/ATLAS_PGD
+  --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD
 elif [ 0 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \

@@ -111,13 +111,13 @@ Load=yes
 # If you want to make any executable, approve the following ones :
 # (libraries should be properly ordered from top to bottom for each binary)
 #
-# Binary "lfitools" :
-cat <<end_of_lfitools_link> $GMKWRKDIR/.lfitools_link
-EXEC=lfitools
-ENTRY=ifsaux/*/lfitools.o
-end_of_lfitools_link
+# Binary "atlas_pgd" :
+cat <<end_of_atlas_pgd_link> $GMKWRKDIR/.atlas_pgd_link
+EXEC=ATLAS_PGD
+ENTRY=atlas/programs/atlas-pgd.o
+end_of_atlas_pgd_link
 # BACKGROUND LIBRARIES (from top to bottom) :
-cat <<end_of_lfitools_libs> $GMKWRKDIR/.lfitools_libs
+cat <<end_of_atlas_pgd_libs> $GMKWRKDIR/.atlas_pgd_libs
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x/lib/libmse.inter.1.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x/lib/libmse.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x/lib/libprograms-mse.main.a
@@ -138,19 +138,21 @@ cat <<end_of_lfitools_libs> $GMKWRKDIR/.lfitools_libs
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x/lib/libifsaux.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x/lib/libprograms-ifsaux.main.a
 /home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x/lib/libunsxref-verbose.main.a
-end_of_lfitools_libs
+end_of_atlas_pgd_libs
 # LOW-LEVEL LIBRARIES (from top to bottom) :
-cat <<end_of_lfitools_sys> $GMKWRKDIR/.lfitools_sys
+cat <<end_of_atlas_pgd_sys> $GMKWRKDIR/.atlas_pgd_sys
 -L/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/x2.9 -lgribex
+-L/home/gmap/mrpm/marguina/atlas/install/lib -latlas_f -latlas -leckit_linalg -leckit_maths -leckit_mpi -leckit_option -leckit -leckit_web -lfckit
 -L/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/netcdf-4.7.2/lib -lnetcdff -lnetcdf
 -L/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/eccodes-2.14.0/lib -leccodes_f90 -leccodes
 -L/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/x2.9 -libmdummy
 -L/opt/softs/intel/2018.04/compilers_and_libraries_2018.5.274/linux/tbb/lib/intel64_lin/gcc4.7 -ltbbmalloc_proxy -ltbbmalloc
-end_of_lfitools_sys
+-lstdc++
+end_of_atlas_pgd_sys
 # LOADER AND OPTIONS :
-cat <<end_of_lfitools_load> $GMKWRKDIR/.lfitools_load
+cat <<end_of_atlas_pgd_load> $GMKWRKDIR/.atlas_pgd_load
 /home/gmap/mrpm/marguina/benchmf1709/gmkpack_support/wrapper/INTELMPI185274/mpif90 /home/gmap/mrpm/marguina/benchmf1709/gmkpack_support/wrapper/I185274/ifort -mkl=sequential -v -fp-stack-check -qopenmp -qopenmp-threadprivate=compat -shared-intel -lifcoremt -lifport -fimf-use-svml=true -Wl,-rpath,/opt/softs/intel/beta/mkl_nightly_2019u2_20181208/mkl/lib/intel64 -Wl,-rpath,/opt/softs/intel/2018.04/compilers_and_libraries_2018.5.274/linux/tbb/lib/intel64_lin/gcc4.7 -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/boost_1_72_0/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/eccodes-2.14.0/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/hdf5-1.10.5/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/lapack-3.2.1/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/netcdf-4.7.2/lib -Wl,-rpath,/home/gmap/mrpm/marguina/install/I185274INTELMPI185274_bull/x2.9 -Wl,-rpath,/home/gmap/mrpm/marguina/atlas/install/lib
-end_of_lfitools_load
+end_of_atlas_pgd_load
 #
 #
 # Blacklist file generator

@@ -8,7 +8,7 @@ ulimit -s unlimited
 export DR_HOOK_NOT_MPI=1 
 export DR_HOOK=0 
 
-PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
+export PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x
 
 cd $TMPDIR
 

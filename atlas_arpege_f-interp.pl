@@ -94,7 +94,7 @@ sub mpiauto
 }
 
 
-my $PACK = '/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x';
+my $PACK = $ENV{PACK};
 
 
 sub lfitools

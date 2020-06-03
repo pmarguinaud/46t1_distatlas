@@ -618,6 +618,9 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1, const opt_t opt) 
                               atlas::array::DataType::kind<T> (), 
                               atlas::array::make_shape (fs2.size ()));
       f2.metadata () = f1.metadata ();
+      T zundef = std::numeric_limits<T>::max ();
+      if (! f2.metadata ().get ("undef", zundef))
+        f2.metadata ().set ("undef", zundef);
       pgp2.add (f2);
     }
 

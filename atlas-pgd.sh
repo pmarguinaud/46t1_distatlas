@@ -19,7 +19,7 @@ else
   cd $TMPDIR
 fi
 
-PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI184274MT.x
+PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x
 
 ls -l
 
@@ -36,9 +36,10 @@ then
   cp -f $PACK/data/fort.4.t149 fort.4
   RED=.20
 else
-# cp -f $PACK/data/fort.4.t1798 fort.4
-# cp -f $PACK/data/fort.4.t4000 fort.4
-  cp -f $PACK/data/fort.4.t8000 fort.4
+  cp -f $PACK/data/fort.4.t1798c2.2 fort.4
+# cp -f $PACK/data/fort.4.t1798     fort.4
+# cp -f $PACK/data/fort.4.t4000     fort.4
+# cp -f $PACK/data/fort.4.t8000     fort.4
   RED=""
 fi
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -N4
+#SBATCH -N1
 #SBATCH --exclusive
 
 set -x
@@ -31,7 +31,19 @@ ls -l
 #cp -f $PACK/data/fort.4.t1798 fort.4
 
 
-if [ 0 -eq 1 ]
+if [ 1 -eq 1 ]
+then
+  cp -f $PACK/data/fort.4.100x50ll fort.4
+  RED=.20
+elif [ 1 -eq 1 ]
+then
+  cp -f $PACK/data/fort.4.180x91 fort.4
+  RED=.20
+elif [ 0 -eq 1 ]
+then
+  cp -f $PACK/data/fort.4.64x64 fort.4
+  RED=.20
+elif [ 0 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.t149 fort.4
   RED=.20
@@ -56,18 +68,18 @@ ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr           SFX.
 
 rm PGD2*
 
-if [ 1 -eq 1 ]
+if [ 0 -eq 1 ]
 then
 
-export ATLAS_TRACE=1
-export ATLAS_TRACE_REPORT=1
+#xport ATLAS_TRACE=1
+#xport ATLAS_TRACE_REPORT=1
 
 
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD
-elif [ 0 -eq 1 ]
+elif [ 1 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \

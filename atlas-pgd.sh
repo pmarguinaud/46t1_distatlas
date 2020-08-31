@@ -86,9 +86,11 @@ then
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 1 -openmp 10 -- $PACK/bin/ATLAS_PGD
 else
-OMP_NUM_THREADS=1 gdb --ex=run --args $PACK/bin/ATLAS_PGD
+#MP_NUM_THREADS=1 gdb --ex=run --args $PACK/bin/ATLAS_PGD
+OMP_NUM_THREADS=1 $PACK/bin/ATLAS_PGD
 exit
 fi
+
 
 ls -lrt 
 

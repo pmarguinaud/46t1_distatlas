@@ -115,8 +115,14 @@ ELSE
 !     CALL LFITESTREAD
 !   CASE ('lfitestwrite')
 !     CALL LFITESTWRITE
+    CASE ('lfigrib2fa')
+      CALL LFIGRIB2FA
     CASE ('lfixxx')
       CALL LFIXXX
+    CASE ('lfimixsst')
+      CALL LFIMIXSST
+    CASE ('lfiwatercontent')
+      CALL LFIWATERCONTENT
     CASE ('lfiyyy')
       CALL LFIYYY
     CASE DEFAULT

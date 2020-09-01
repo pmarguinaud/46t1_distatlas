@@ -35,7 +35,7 @@ if [ 1 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.100x50ll fort.4
   RED=.20
-elif [ 1 -eq 1 ]
+elif [ 0 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.180x91 fort.4
   RED=.20
@@ -43,7 +43,7 @@ elif [ 0 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.64x64 fort.4
   RED=.20
-elif [ 0 -eq 1 ]
+elif [ 1 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.t149 fort.4
   RED=.20
@@ -79,7 +79,7 @@ then
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD
-elif [ 1 -eq 1 ]
+elif [ 0 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
@@ -88,7 +88,6 @@ then
 else
 #MP_NUM_THREADS=1 gdb --ex=run --args $PACK/bin/ATLAS_PGD
 OMP_NUM_THREADS=1 $PACK/bin/ATLAS_PGD
-exit
 fi
 
 

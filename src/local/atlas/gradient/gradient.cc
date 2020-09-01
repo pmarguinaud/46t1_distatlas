@@ -250,6 +250,13 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
            jloc_e = ij_to_index_and_xy (i_e, j_e),
            jloc_0 = jloc;
 
+      if (jlocnw == nai) jlocnw = jloc;
+      if (jlocne == nai) jlocne = jloc;
+      if (jlocsw == nai) jlocsw = jloc;
+      if (jlocse == nai) jlocse = jloc;
+      if (jloc_w == nai) jloc_w = jloc;
+      if (jloc_e == nai) jloc_e = jloc;
+
       for (int jfld = 0; jfld < pgp.size (); jfld++)
         {
           T zundf = zundef[jfld];
@@ -273,7 +280,7 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
           double an = (vxy (jloc, 0) - vxy (jlocne, 0)) / (vxy (jlocnw, 0) - vxy (jlocne, 0));
           double as = (vxy (jloc, 0) - vxy (jlocse, 0)) / (vxy (jlocsw, 0) - vxy (jlocse, 0));
-   
+
           double vn = an * v (jlocnw) + (1.0 - an) * v (jlocne);
           double vs = as * v (jlocsw) + (1.0 - as) * v (jlocse);
           T y0 = vxy (jloc_0, 1);
@@ -474,6 +481,13 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
            jloc_w = ij_to_index_and_xy (i_w, j_w),
            jloc_e = ij_to_index_and_xy (i_e, j_e),
            jloc_0 = jloc;
+
+      if (jlocnw == nai) jlocnw = jloc;
+      if (jlocne == nai) jlocne = jloc;
+      if (jlocsw == nai) jlocsw = jloc;
+      if (jlocse == nai) jlocse = jloc;
+      if (jloc_w == nai) jloc_w = jloc;
+      if (jloc_e == nai) jloc_e = jloc;
 
       double x0 = vxy (jloc_0, 0);
       double xw = vxy (jloc_w, 0);

@@ -114,7 +114,7 @@ BLOCK
     ENDIF
     YLGRID = ATLAS_LONLATREGIONALGRID (YLGROPT%NDLON, YLGROPT%NDGLG, &
                                      & YLGROPT%ZLONW, YLGROPT%ZLONE, &
-                                     & YLGROPT%ZLATS, YLGROPT%ZLATN)
+                                     & YLGROPT%ZLATN, YLGROPT%ZLATS)
   ENDIF
 
   CALL YLCFGR%FINAL ()

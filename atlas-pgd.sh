@@ -79,12 +79,12 @@ then
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD
-elif [ 0 -eq 1 ]
+elif [ 1 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 1 -openmp 10 -- $PACK/bin/ATLAS_PGD
+  --wrap --wrap-stdeo -nn $NN -nnp 2 -openmp 10 -- $PACK/bin/ATLAS_PGD
 else
 #MP_NUM_THREADS=1 gdb --ex=run --args $PACK/bin/ATLAS_PGD
 OMP_NUM_THREADS=1 $PACK/bin/ATLAS_PGD

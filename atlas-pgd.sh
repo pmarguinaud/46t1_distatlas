@@ -31,11 +31,11 @@ ls -l
 #cp -f $PACK/data/fort.4.t1798 fort.4
 
 
-if [ 1 -eq 1 ]
+if [ 0 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.3x3ll fort.4
   RED=.10
-elif [ 0 -eq 1 ]
+elif [ 1 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.100x50ll fort.4
   RED=.10
@@ -84,7 +84,7 @@ then
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD
-elif [ 0 -eq 1 ]
+elif [ 1 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \

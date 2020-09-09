@@ -7,6 +7,7 @@ set -x
 ulimit -s unlimited
 export DR_HOOK_NOT_MPI=1 
 export DR_HOOK=0 
+export OMP_STACK_SIZE=2G
 
 NN=$SLURM_NNODES
 
@@ -48,7 +49,7 @@ then
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD_POINTS
-elif [ 0 -eq 1 ]
+elif [ 1 -eq 1 ]
 then
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \

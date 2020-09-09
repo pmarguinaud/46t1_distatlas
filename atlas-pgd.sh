@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -N1
+#SBATCH -N4
 #SBATCH --exclusive
 
 set -x
@@ -35,7 +35,7 @@ if [ 0 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.3x3ll fort.4
   RED=.10
-elif [ 1 -eq 1 ]
+elif [ 0 -eq 1 ]
 then
   cp -f $PACK/data/fort.4.100x50ll fort.4
   RED=.10
@@ -73,7 +73,7 @@ ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr           SFX.
 
 rm PGD2*
 
-if [ 0 -eq 1 ]
+if [ 1 -eq 1 ]
 then
 
 #xport ATLAS_TRACE=1

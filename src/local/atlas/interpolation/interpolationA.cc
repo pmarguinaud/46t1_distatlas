@@ -2,6 +2,7 @@
 #include "ompsort.h"
 
 
+#include "eckit/mpi/Comm.h"
 #include "atlas/runtime/Trace.h"
 #include "atlas/runtime/Exception.h"
 #include "atlas/grid.h"
@@ -80,6 +81,7 @@ interpolationAimpl::interpolationAimpl
   auto & comm = atlas::mpi::comm ();
 
   int myproc = comm.rank (), nproc = comm.size ();
+  const bool llmpi = nproc > 1;
 
   std::vector<atlas::gidx_t> iglo1all (4 * fs2.sizeOwned ());
 
@@ -210,7 +212,10 @@ interpolationAimpl::interpolationAimpl
   for (int iproc = 1; iproc < nproc; iproc++)
     isendoff[iproc] = isendoff[iproc-1] + isendcnt[iproc-1];
 
-  comm.allToAll (isendcnt, irecvcnt);
+  if (llmpi)
+    comm.allToAll (isendcnt, irecvcnt);
+  else
+    irecvcnt[0] = isendcnt[0];
 
   ATLAS_TRACE_SCOPE ("Sort points by task, global indice")
   {
@@ -255,13 +260,17 @@ interpolationAimpl::interpolationAimpl
         yl_recv[inrecv].iproc = iproc;
         yl_exch_recv[inrecv].size = irecvcnt[iproc];
         yl_exch_recv[inrecv].iglo1iglo2.resize (2 * irecvcnt[iproc]);
-        reqrecv[inrecv] = comm.iReceive (&yl_exch_recv[inrecv].iglo1iglo2[0],
-                                        yl_exch_recv[inrecv].iglo1iglo2.size (),
-                                        iproc, 101);
+
+        if (llmpi)
+          reqrecv[inrecv] = comm.iReceive (&yl_exch_recv[inrecv].iglo1iglo2[0],
+                                          yl_exch_recv[inrecv].iglo1iglo2.size (),
+                                          iproc, 101);
+          
         inrecv++;
       }
 
-  comm.barrier ();
+  if (llmpi)
+    comm.barrier ();
 
   // Send
 
@@ -288,9 +297,13 @@ interpolationAimpl::interpolationAimpl
             yl_exch_send[insend].iglo1iglo2[2*i+1] = prcglo1[jind1].iglo2;
           }
 
-        reqsend[insend] = comm.iSend (&yl_exch_send[insend].iglo1iglo2[0],
-                                     yl_exch_send[insend].iglo1iglo2.size (),
-                                     iproc, 101);
+        if (llmpi)
+          reqsend[insend] = comm.iSend (&yl_exch_send[insend].iglo1iglo2[0],
+                                       yl_exch_send[insend].iglo1iglo2.size (),
+                                       iproc, 101);
+        else
+          yl_exch_recv[0].iglo1iglo2 = yl_exch_send[0].iglo1iglo2;
+
         insend++;
       }
 
@@ -304,12 +317,15 @@ interpolationAimpl::interpolationAimpl
                      });
  
 
-  for (int i = 0; i < inrecv; i++)
-    comm.wait (reqrecv[i]);
+  if (llmpi)
+    {
+      for (int i = 0; i < inrecv; i++)
+        comm.wait (reqrecv[i]);
 
-  // TODO : move wait send further
-  for (int i = 0; i < insend; i++)
-    comm.wait (reqsend[i]);
+      // TODO : move wait send further
+      for (int i = 0; i < insend; i++)
+        comm.wait (reqsend[i]);
+    }
 
   for (auto & yl_exch : yl_exch_send)
     yl_exch.iglo1iglo2.clear ();
@@ -473,6 +489,7 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
 
   auto & comm = atlas::mpi::comm ();
   const int myproc = comm.rank ();
+  const bool llmpi = comm.size () > 1;
 
   const int infld = pgp1.size ();
   const int insend = yl_send.size ();
@@ -498,11 +515,13 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
     {
       int iproc = yl_recv[ii].iproc;
       size_t isize = yl_recv[ii].isize;
-      reqrecv[ii] = comm.iReceive (&zbufr[ioffr], isize * infld, iproc, 101);
+      if (llmpi)
+        reqrecv[ii] = comm.iReceive (&zbufr[ioffr], isize * infld, iproc, 101);
       ioffr = ioffr + infld * isize;
     }
 
-  comm.barrier ();
+  if (llmpi)
+    comm.barrier ();
 
   std::vector<size_t> ioffs_all (insend);
 
@@ -537,12 +556,18 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
             auto & v = fv1[jfld];
             zbufs[ioffs+jfld*isize+jj] = v (yl_send[ii].iloc[jj]);
           }
-      reqsend[ii] = comm.iSend (&zbufs[ioffs], infld * isize, iproc, 101);
+      if (llmpi)
+        reqsend[ii] = comm.iSend (&zbufs[ioffs], infld * isize, iproc, 101);
+      else
+        zbufr.assign (&zbufs[0], &zbufs[0] + infld * isize);
     }
 
+  if (llmpi)
+    {
 // TODO: Use MPI_WAITANY
-  for (int i = 0; i < inrecv; i++)
-    comm.wait (reqrecv[i]);
+      for (int i = 0; i < inrecv; i++)
+        comm.wait (reqrecv[i]);
+    }
 
   std::vector<size_t> ioffr_all (inrecv);
 
@@ -567,8 +592,11 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
           }
     }
 
-  for (int i = 0; i < insend; i++)
-    comm.wait (reqsend[i]);
+  if (llmpi)
+    {
+      for (int i = 0; i < insend; i++)
+        comm.wait (reqsend[i]);
+    }
 
   return pgp2e;
   }

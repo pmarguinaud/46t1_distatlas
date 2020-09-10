@@ -115,6 +115,7 @@ interpolation4impl::interpolation4impl
 
   auto & comm = atlas::mpi::comm ();
   int irank = comm.rank (), nproc = comm.size ();
+  const bool llmpi = nproc > 1;
 
   std::vector<atlas::gidx_t> iglo1all (4 * fs2.sizeOwned ());
 
@@ -323,7 +324,10 @@ interpolation4impl::interpolation4impl
 
   // Exchange send/recv counts
 
-  comm.allToAll (irecvcnt, isendcnt);
+  if (llmpi)
+    comm.allToAll (irecvcnt, isendcnt);
+  else
+    isendcnt[0] = irecvcnt[0];
 
   int insend = std::count_if (std::begin (isendcnt), std::end (isendcnt), [] (int k) { return k > 0; });
   int inrecv = std::count_if (std::begin (irecvcnt), std::end (irecvcnt), [] (int k) { return k > 0; });
@@ -371,25 +375,33 @@ interpolation4impl::interpolation4impl
 
   // Exchange global indices of grid #1
 
+
   std::vector<eckit::mpi::Request> reqsend (insend), reqrecv (inrecv);
 
-  // Send indices we need to send values for
-  for (int i = 0; i < insend; i++)
-    reqsend[i] = comm.iReceive (&yl_send[i].iglo[0],
-                                yl_send[i].iglo.size (), 
-                                yl_send[i].iprc, 101);
+  if (llmpi)
+    {
+      // Send indices we need to send values for
+      for (int i = 0; i < insend; i++)
+        reqsend[i] = comm.iReceive (&yl_send[i].iglo[0],
+                                    yl_send[i].iglo.size (), 
+                                    yl_send[i].iprc, 101);
 
-  comm.barrier ();
+      comm.barrier ();
 
-  // Receive indices we shall send values for
+      // Receive indices we shall send values for
 
-  for (int i = 0; i < inrecv; i++)
-    reqrecv[i] = comm.iSend (&iglobal1[yl_recv[i].ioff], 
-                             yl_recv[i].icnt, 
-                             yl_recv[i].iprc, 101);
+      for (int i = 0; i < inrecv; i++)
+        reqrecv[i] = comm.iSend (&iglobal1[yl_recv[i].ioff], 
+                                 yl_recv[i].icnt, 
+                                 yl_recv[i].iprc, 101);
 
-  for (int i = 0; i < insend; i++)
-    comm.wait (reqsend[i]);
+      for (int i = 0; i < insend; i++)
+        comm.wait (reqsend[i]);
+    }
+  else
+    {
+      yl_send[0].iglo = iglobal1;
+    }
 
   // We have received the global indices we should transmit; decode them into
   // lat/lon indices, then into local indices
@@ -425,10 +437,13 @@ interpolation4impl::interpolation4impl
       yl_send[i].iglo.clear ();
     }
 
-  // Wait for MPI requests to complete
   
-  for (int i = 0; i < inrecv; i++)
-    comm.wait (reqrecv[i]);
+  if (llmpi)
+    {
+      // Wait for MPI requests to complete
+      for (int i = 0; i < inrecv; i++)
+        comm.wait (reqrecv[i]);
+    }
 
   if (inrecv > 0)
     isize_recv = yl_recv[0].ioff;
@@ -461,6 +476,7 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
 
   auto & comm = atlas::mpi::comm ();
   int irank = comm.rank (), nproc = comm.size ();
+  const bool llmpi = nproc > 1;
 
   // Requests for send/recv
 
@@ -483,35 +499,42 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
   
   std::fill (std::begin (zbufr), std::begin (zbufr) + iskip, 0);
 
-  // Post receives
+  if (llmpi)
+    {
+      // Post receives
 
-  for (int i = 0; i < yl_recv.size (); i++)
-    reqrecv[i] = comm.iReceive (&zbufr[infld*yl_recv[i].ioff], 
-                                yl_recv[i].icnt * infld,
-                                yl_recv[i].iprc, 101);
+      for (int i = 0; i < yl_recv.size (); i++)
+        reqrecv[i] = comm.iReceive (&zbufr[infld*yl_recv[i].ioff], 
+                                    yl_recv[i].icnt * infld,
+                                    yl_recv[i].iprc, 101);
 
-  comm.barrier ();
+      comm.barrier ();
 
   // Send data
 
-  for (int i = 0; i < yl_send.size (); i++)
-    {
-      int ioff = yl_send[i].ioff;
-      int icnt = yl_send[i].icnt;
-// TODO: Collapse loops
-      for (int jfld = 0; jfld < infld; jfld++)
+      for (int i = 0; i < yl_send.size (); i++)
         {
-          auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
-#pragma omp parallel for
-          for (int k = 0; k < icnt; k++)
+          int ioff = yl_send[i].ioff;
+          int icnt = yl_send[i].icnt;
+// TODO: Collapse loops
+          for (int jfld = 0; jfld < infld; jfld++)
             {
+              auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
+#pragma omp parallel for
+              for (int k = 0; k < icnt; k++)
+                {
 if (k < 0) abort ();
 if (k >= pgp1[jfld].size ()) abort ();
-            zbufs[infld*ioff+jfld*icnt+k] = v (yl_send[i].iloc[k]);
+                  zbufs[infld*ioff+jfld*icnt+k] = v (yl_send[i].iloc[k]);
+                }
             }
+          reqsend[i] = comm.iSend (&zbufs[infld*ioff], icnt * infld,
+                                   yl_send[i].iprc, 101);
         }
-      reqsend[i] = comm.iSend (&zbufs[infld*ioff], icnt * infld,
-                               yl_send[i].iprc, 101);
+    }
+  else
+    {
+      zbufr.assign (&zbufs[0], &zbufs[0] + zbufs.size ());
     }
 
   // Create fields in pgp2
@@ -531,8 +554,9 @@ if (k >= pgp1[jfld].size ()) abort ();
         v (k) = 0;
     }
 
-  for (auto & req : reqrecv)
-    comm.wait (req);
+  if (llmpi)
+    for (auto & req : reqrecv)
+      comm.wait (req);
 
   // Shuffle values in pgp2e
   for (int i = 0; i < yl_recv.size (); i++)
@@ -549,8 +573,9 @@ if (k >= pgp1[jfld].size ()) abort ();
         }
     }
 
-  for (auto & req : reqsend)
-    comm.wait (req);
+  if (llmpi)
+    for (auto & req : reqsend)
+      comm.wait (req);
 
   return pgp2e;
   }
@@ -620,9 +645,6 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
   {
 
   atlas::FieldSet pgp2;
-
-  auto & comm = atlas::mpi::comm ();
-  int irank = comm.rank (), nproc = comm.size ();
 
   int infld = pgp1.size ();
 

@@ -281,9 +281,13 @@ CALL YLFLD%DATA (ZDATA)
 
 ALLOCATE (ISIZE (NPROC), IOFFS (NPROC + 1))
 
-CALL YLCOMM%ALLGATHER ([YDFSSC%SIZE_OWNED ()], ISIZE, 1, &
-                     & [(1, I = 0, YLCOMM%SIZE ())],     &
-                     & [(I, I = 0, YLCOMM%SIZE ())]);
+IF (NPROC > 1) THEN
+  CALL YLCOMM%ALLGATHER ([YDFSSC%SIZE_OWNED ()], ISIZE, 1, &
+                       & [(1, I = 0, YLCOMM%SIZE ())],     &
+                       & [(I, I = 0, YLCOMM%SIZE ())]);
+ELSE
+  ISIZE = YDFSSC%SIZE_OWNED ()
+ENDIF
 
 IOFFS (1) = 0
 DO IPROC = 2, NPROC+1

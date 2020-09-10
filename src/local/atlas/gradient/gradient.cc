@@ -119,9 +119,6 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
   ATLAS_TRACE_SCOPE ("gradient")
   {
 
-  auto & comm = atlas::mpi::comm ();
-  int irank = comm.rank (), nproc = comm.size ();
-
   atlas::Field fxy = fs.xy ();
 
   const atlas::StructuredGrid & grid = fs.grid ();
@@ -342,9 +339,6 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
 
   ATLAS_TRACE_SCOPE ("halfdiff")
   {
-
-  auto & comm = atlas::mpi::comm ();
-  int irank = comm.rank (), nproc = comm.size ();
 
   atlas::Field fxy = fs.xy ();
 

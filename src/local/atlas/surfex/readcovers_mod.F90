@@ -107,6 +107,8 @@ ALLOCATE (YDCOVER%XDATA_LE_TRAFFIC (YDCOVER%JPCOVER))
 ALLOCATE (YDCOVER%XDATA_H_INDUSTRY (YDCOVER%JPCOVER))
 ALLOCATE (YDCOVER%XDATA_LE_INDUSTRY (YDCOVER%JPCOVER))
 
+!$OMP CRITICAL
+
 IF (KFILE==1) THEN
   OPEN(41,FILE='ecoclimapI_covers_param.bin',FORM='UNFORMATTED',ACCESS='DIRECT', &
           recl=20*8,STATUS='OLD',IOSTAT=IERR_OPEN)  
@@ -194,6 +196,8 @@ DO JCOVER = 1,INB_COVER
   ENDIF
 ENDDO
 CLOSE(41)
+
+!$OMP END CRITICAL
 
 !-------------------------------------------------------------------------------
 ! Change water (not lake) to nature                                             

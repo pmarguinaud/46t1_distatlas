@@ -224,12 +224,21 @@ interpolationAimpl::interpolationAimpl
 
   ompiota (std::begin (iord_by_prc2glo2), std::end (iord_by_prc2glo2), 0);
 
-  ompsort (std::begin (iord_by_prc2glo2), std::end (iord_by_prc2glo2), 
-           [&prcglo1] (int a, int b) 
-           { 
-             if (prcglo1[a].iprc2 == prcglo1[b].iprc2)
-               return prcglo1[a].iglo2 < prcglo1[b].iglo2;
-             return prcglo1[a].iprc2 < prcglo1[b].iprc2;
+  if (llmpi)
+     ompsort (std::begin (iord_by_prc2glo2), std::end (iord_by_prc2glo2), 
+              [&prcglo1] (int a, int b) 
+              { 
+                if (prcglo1[a].iprc2 == prcglo1[b].iprc2)
+                  return prcglo1[a].iglo2 < prcglo1[b].iglo2;
+                return prcglo1[a].iprc2 < prcglo1[b].iprc2;
+           });
+  else
+     std::stable_sort (std::begin (iord_by_prc2glo2), std::end (iord_by_prc2glo2), 
+              [&prcglo1] (int a, int b) 
+              { 
+                if (prcglo1[a].iprc2 == prcglo1[b].iprc2)
+                  return prcglo1[a].iglo2 < prcglo1[b].iglo2;
+                return prcglo1[a].iprc2 < prcglo1[b].iprc2;
            });
 
   prcglo1 = reorder (prcglo1, iord_by_prc2glo2);
@@ -287,6 +296,8 @@ interpolationAimpl::interpolationAimpl
         yl_send[insend].isize = isendcnt[iproc];
         yl_send[insend].iloc.resize (isendcnt[iproc]);
      
+
+
         // List of points of grid #1 to send to iproc
 #pragma omp parallel for
         for (int i = 0; i < isendcnt[iproc]; i++)
@@ -315,8 +326,6 @@ interpolationAimpl::interpolationAimpl
                      {
                        return a + s.isize;
                      });
- 
-
   if (llmpi)
     {
       for (int i = 0; i < inrecv; i++)
@@ -354,7 +363,7 @@ interpolationAimpl::interpolationAimpl
       // Count number of different remote points for each local point on grid #2
       
       yl_recv[ii].desc.resize (inloc);
-      
+
       jglo2 = -1;
       inloc = 0;
       for (int jj = 0; jj < yl_exch_recv[ii].size; jj++)
@@ -477,6 +486,7 @@ interpolationAimpl::interpolationAimpl
 
 
   }
+
 }
 
 template <typename T>

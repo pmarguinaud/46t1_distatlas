@@ -224,8 +224,13 @@ interpolation4impl::interpolation4impl
 
   ompiota (std::begin (iord_by_glo1), std::end (iord_by_glo1), 0);
 
-  ompsort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
-           [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; });
+  if (llmpi)
+    ompsort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
+             [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; });
+  else
+    std::stable_sort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
+             [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; });
+   
 
   // Reverse indices array
 

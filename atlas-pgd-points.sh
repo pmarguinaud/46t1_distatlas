@@ -56,7 +56,28 @@ then
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 2 -openmp 10 -- $PACK/bin/ATLAS_PGD_POINTS
 else
-OMP_NUM_THREADS=10 gdb --ex=run --args $PACK/bin/ATLAS_PGD_POINTS
+
+OMP_NUM_THREADS=2 gdb --ex=run --args $PACK/bin/ATLAS_PGD_POINTS
+
+exit
+
+rm log.*.txt.? log.*.txt
+
+OMP_NUM_THREADS=1 $PACK/bin/ATLAS_PGD_POINTS > stdeo.0.1 2>&1
+
+for l in log.*.txt
+do
+ mv $l $l.1
+done
+
+OMP_NUM_THREADS=2 $PACK/bin/ATLAS_PGD_POINTS > stdeo.0.2 2>&1
+
+for l in log.*.txt
+do
+ mv $l $l.2
+done
+
+#MP_NUM_THREADS=2 gdb --ex=run --args $PACK/bin/ATLAS_PGD_POINTS
 #MP_NUM_THREADS=1 $PACK/bin/ATLAS_PGD_POINTS
 fi
 

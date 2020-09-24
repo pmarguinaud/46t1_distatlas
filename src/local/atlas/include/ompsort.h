@@ -11,9 +11,15 @@
 
 
 template <typename I, typename C>
-void ompsort (I b, I e, C cmp)
+void ompsort (I b, I e, C cmp, bool ldopenmp)
 {
   using tt = typename I::value_type;
+
+  if (! ldopenmp)
+    {
+      std::stable_sort (b, e, cmp);
+      return;
+    }
 
   size_t n = e - b;
   int nt = omp_get_max_threads ();

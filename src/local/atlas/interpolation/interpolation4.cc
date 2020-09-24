@@ -104,8 +104,9 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
 
 interpolation4impl::interpolation4impl 
 (const atlas::grid::Distribution & _dist1, const atlas::functionspace::StructuredColumns & _fs1,
- const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
-: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
+ const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2,
+ const bool ldopenmp)
+: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2), llopenmp (ldopenmp)
 {
   ATLAS_TRACE_SCOPE ("interpolation4impl::interpolation4impl")
   {
@@ -135,7 +136,7 @@ interpolation4impl::interpolation4impl
 
   ATLAS_TRACE_SCOPE ("Coordinates mapping")
   {
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
     {
 
@@ -224,12 +225,8 @@ interpolation4impl::interpolation4impl
 
   ompiota (std::begin (iord_by_glo1), std::end (iord_by_glo1), 0);
 
-  if (llmpi)
-    ompsort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
-             [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; });
-  else
-    std::stable_sort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
-             [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; });
+  ompsort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
+           [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; }, llopenmp);
    
 
   // Reverse indices array
@@ -288,7 +285,7 @@ interpolation4impl::interpolation4impl
               if (prcglo1[a].iprc == prcglo1[b].iprc)
                 return prcglo1[a].iglo < prcglo1[b].iglo; 
               return prcglo1[a].iprc < prcglo1[b].iprc; 
-           });
+           }, llopenmp);
 
   irev_by_prc1glo1 = reverse (iord_by_prc1glo1);
 
@@ -525,7 +522,7 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
           for (int jfld = 0; jfld < infld; jfld++)
             {
               auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
               for (int k = 0; k < icnt; k++)
                 {
 if (k < 0) abort ();
@@ -554,7 +551,7 @@ if (k >= pgp1[jfld].size ()) abort ();
       f2e.metadata () = f1.metadata ();
       pgp2e.add (f2e);
       auto v = atlas::array::make_view<T,1> (f2e);
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
       for (int k = 0; k < yl_recv[0].ioff; k++)
         v (k) = 0;
     }
@@ -572,7 +569,7 @@ if (k >= pgp1[jfld].size ()) abort ();
       for (int jfld = 0; jfld < infld; jfld++)
         {
           auto v = atlas::array::make_view<T,1> (pgp2e[jfld]);
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
           for (int k = 0; k < icnt; k++)
             v (ioff + k) = zbufr[infld * ioff + jfld * icnt + k];
         }
@@ -608,7 +605,7 @@ interpolation4impl::create_weights ()
   auto z2e = atlas::array::make_view<double,1> (xyz2e[2]);
   
   ATLAS_TRACE_SCOPE ("Compute weights");
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
   for (int jloc2 = 0; jloc2 < size2; jloc2++) 
     {
       // The weight is the inverse of the distance in radian between the target point 
@@ -674,7 +671,7 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
       bool llundef = pgp1[jfld].metadata ().get ("undef", zundef);
       auto v2  = atlas::array::make_view<T,1> (pgp2 [jfld]);
       auto v2e = atlas::array::make_view<T,1> (pgp2e[jfld]);
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
       for (int jloc2 = 0; jloc2 < size2; jloc2++)
         {
           int kisw = 4*(jloc2+1)+ISW-1, jisw = isort[kisw];
@@ -716,11 +713,13 @@ DEF (double);
 
 interpolation4impl * interpolation4__new 
   (const atlas::grid::DistributionImpl * dist1, const atlas::functionspace::detail::StructuredColumns * fs1,
-   const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2)
+   const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2,
+   const int ldopenmp)
 {
   interpolation4impl * int4 = new interpolation4impl
   (atlas::grid::Distribution (dist1), atlas::functionspace::StructuredColumns (fs1), 
-   atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2));
+   atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2),
+   ldopenmp > 0);
   return int4;
 }
 

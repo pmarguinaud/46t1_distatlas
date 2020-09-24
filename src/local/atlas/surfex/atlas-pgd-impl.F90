@@ -173,7 +173,7 @@ YLFLDS2 = ATLAS_FIELDSET ()
 
 ! Create interpolation object (source -> target)
 
-YLINTEA = INTERPOLATIONA (YLDIST1, YLFSSC1, YLDIST2, YLFSSC2)
+YLINTEA = INTERPOLATIONA (YLDIST1, YLFSSC1, YLDIST2, YLFSSC2, LDOPENMP)
 
 ! Read input fields on source geometry
 

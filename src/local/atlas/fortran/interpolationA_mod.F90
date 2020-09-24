@@ -40,14 +40,15 @@ end interface
 
 interface
 
-function interpolationA__new (dist1, fs1, dist2, fs2) &
+function interpolationA__new (dist1, fs1, dist2, fs2, ldopenmp) &
         & bind (C, name="interpolationA__new")
-  use iso_c_binding, only : c_ptr
+  use iso_c_binding, only : c_ptr, c_int
   type (c_ptr) :: interpolationA__new
   type (c_ptr), value :: dist1
   type (c_ptr), value :: fs1
   type (c_ptr), value :: dist2
   type (c_ptr), value :: fs2
+  integer (c_int), value :: ldopenmp
 end function
 
 function interpolationA__interpolate (this, pgp1, opt) &
@@ -92,14 +93,20 @@ end interface
 
 contains
 
-function interpolationA__ctor (dist1, fs1, dist2, fs2) result (this)
+function interpolationA__ctor (dist1, fs1, dist2, fs2, ldopenmp) result (this)
   type (interpolationA) :: this
   type (atlas_GridDistribution),                intent(in) :: dist1
   type (atlas_functionspace_StructuredColumns), intent(in) :: fs1
   type (atlas_GridDistribution),                intent(in) :: dist2
   type (atlas_functionspace_StructuredColumns), intent(in) :: fs2
+  logical, optional,                            intent(in) :: ldopenmp
+  integer (c_int) :: llopenmp
+  llopenmp = 1
+  if (present (ldopenmp)) then
+    if (.not. ldopenmp) llopenmp = 0
+  endif
   call this%reset_c_ptr (interpolationA__new (dist1%CPTR_PGIBUG_A, fs1%CPTR_PGIBUG_A, &
-                       &                      dist2%CPTR_PGIBUG_A, fs2%CPTR_PGIBUG_A))
+                       &                      dist2%CPTR_PGIBUG_A, fs2%CPTR_PGIBUG_A, llopenmp))
   call this%return ()
 end function
 

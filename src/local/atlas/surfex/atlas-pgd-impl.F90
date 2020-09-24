@@ -278,6 +278,8 @@ BLOCK
 
 ! Compute tensor fields
 
+! Does not work with OpenMP yet
+
 !#OMP PARALLEL DO PRIVATE (JLOC1) IF (LLOPENMP)
   DO JLOC1 = 1, SIZE (YLPT1 (JZS)%ZDATA)
     IF (YLPT1 (JZS)%ZDATA (JLOC1) /= ZUNDEF) THEN

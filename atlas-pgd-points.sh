@@ -38,6 +38,9 @@ ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr           SFX.
 
 rm PGD2*
 
+export ECKIT_MPI_INIT_THREAD=MPI_THREAD_MULTIPLE
+
+
 if [ 0 -eq 1 ]
 then
 
@@ -49,15 +52,18 @@ then
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD_POINTS
-elif [ 0 -eq 1 ]
+elif [ 1 -eq 1 ]
 then
+
+#export MPIAUTOCONFIG=mpiauto.XGDB1.conf
+
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 2 -openmp 10 -- $PACK/bin/ATLAS_PGD_POINTS
 else
 
-OMP_NUM_THREADS=2 gdb --ex=run --args $PACK/bin/ATLAS_PGD_POINTS
+OMP_NUM_THREADS=10 gdb --ex=run --args $PACK/bin/ATLAS_PGD_POINTS
 
 exit
 

@@ -37,7 +37,7 @@ struct coef
 {
   static const double * c ()
   {
-    return nullptr;
+    static_assert (false, "Coefficients not available");
   }
 };
 

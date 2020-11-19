@@ -1,4 +1,4 @@
-SUBROUTINE ATLAS_PGD_IMPL (YDIO1, YDIO2, YDGRID2, LDOPENMP)
+SUBROUTINE ATLAS_PGD_IMPL (YDIO1, YDIO2, YDGRID2, LDOPENMP, LDROTATE, PELLIPSE)
 
 USE PARKIND1, ONLY : JPIM, JPRB
 USE INTERPOLATIONA_MOD
@@ -38,6 +38,8 @@ TYPE  (ATLAS_STRUCTUREDGRID)                 :: YLGRID1
 CLASS (ATLAS_STRUCTUREDGRID)                 :: YDGRID2
 
 LOGICAL, OPTIONAL                            :: LDOPENMP
+LOGICAL, OPTIONAL                            :: LDROTATE
+REAL (KIND=JPRB), OPTIONAL, POINTER          :: PELLIPSE (:)
 
 ! Grids of input files
 
@@ -94,11 +96,16 @@ INTEGER (KIND=JPIM) :: JFRAC_SEA, JFRAC_WATER, JFRAC_NATURE, JFRAC_TOWN
 INTEGER (KIND=JPIM) :: JBATHY, JRUNOFFB, JWDRAIN, JCOVER
 
 
-LOGICAL :: LLOPENMP
+LOGICAL :: LLOPENMP, LLROTATE, LLELLIPSE
 
 LLOPENMP = .TRUE.
-
 IF (PRESENT (LDOPENMP)) LLOPENMP = LDOPENMP
+
+LLROTATE = .TRUE.
+IF (PRESENT (LDROTATE)) LLROTATE = LDROTATE
+
+LLELLIPSE = .FALSE.
+IF (PRESENT (PELLIPSE)) LLELLIPSE = ASSOCIATED (PELLIPSE) 
 
 ! MPI info
 
@@ -182,6 +189,70 @@ CALL RNS1 (JCLAY   , "SFX.CLAY", PSCALE=0.01_JPRB)
 CALL RNS1 (JSAND   , "SFX.SAND", PSCALE=0.01_JPRB)
 CALL RNS1 (JCOVER+1, "SFX.COVER")
 
+IF (LLELLIPSE) THEN
+  BLOCK
+    REAL (KIND=JPRB), POINTER  :: ZLONLAT1 (:,:)
+    REAL (KIND=JPRB) :: ZLON1, ZLAT1, ZLON0, ZLAT0
+    REAL (KIND=JPRB) :: ZU0 (3), ZV0 (3), ZW0 (3)
+    REAL (KIND=JPRB) :: ZW1 (3), ZW1ZU0, ZW1ZV0, ZW1ZW0, ZWA (3), ZWB (3)
+    REAL (KIND=JPRB) :: ZAA, ZBB, ZA1, ZB1, ZHH
+    TYPE (ATLAS_FIELD) :: YLFLLONLAT1
+    INTEGER (KIND=JPIM) :: JLOC1
+
+    ZLON0 = PELLIPSE (1) * RPI / 180._JPRB
+    ZLAT0 = PELLIPSE (2) * RPI / 180._JPRB
+    ZAA   = PELLIPSE (3) * RPI / 180._JPRB
+    ZBB   = PELLIPSE (4) * RPI / 180._JPRB
+    ZHH   = PELLIPSE (5)
+
+! Center of ellipse; this is also the local vector pointing up
+    ZW0 (1) = COS (ZLON0) * COS (ZLAT0)
+    ZW0 (2) = SIN (ZLON0) * COS (ZLAT0)
+    ZW0 (3) =               SIN (ZLAT0)
+
+! Tangent U vector at center of ellipse; this is first axis of the ellipse
+    ZU0 = CROSS ([0._JPRB, 0._JPRB, 1._JPRB], ZW0)
+    ZU0 = ZU0 / NORM (ZU0)
+! Tangent V vector at center of ellipse; second axis of the ellipse
+    ZV0 = CROSS (ZW0, ZU0)
+
+    YLFLLONLAT1 = YLFSSC1%XY () ! Input grid is lat/lon
+    CALL YLFLLONLAT1%DATA (ZLONLAT1)
+
+    DO JLOC1 = 1, SIZE (ZLONLAT1, 2)
+
+      ZLON1 = ZLONLAT1 (1, JLOC1) * RPI / 180._JPRB
+      ZLAT1 = ZLONLAT1 (2, JLOC1) * RPI / 180._JPRB
+
+! Current point
+      ZW1 (1) = COS (ZLON1) * COS (ZLAT1)
+      ZW1 (2) = SIN (ZLON1) * COS (ZLAT1)
+      ZW1 (3) =               SIN (ZLAT1)
+
+! Projection of current point on U, V, W at center of ellipse
+      ZW1ZU0 = DOT_PRODUCT (ZW1, ZU0)
+      ZW1ZV0 = DOT_PRODUCT (ZW1, ZV0)
+      ZW1ZW0 = DOT_PRODUCT (ZW1, ZW0)
+
+! A is the projection of current point onto ellipse U axis
+! B is the projection of current point onto ellipse V axis
+      ZWA = ZW1ZU0 * ZU0 + ZW1ZW0 * ZW0; ZWA = ZWA / NORM (ZWA)
+      ZWB = ZW1ZV0 * ZV0 + ZW1ZW0 * ZW0; ZWB = ZWB / NORM (ZWB)
+
+      ZA1 = ACOS (DOT_PRODUCT (ZWA, ZW0))
+      ZB1 = ACOS (DOT_PRODUCT (ZWB, ZW0))
+
+      YLPT1 (JZS)%ZDATA (JLOC1) = ZHH / SQRT ((ZA1/ZAA)**2 + (ZB1/ZBB)**2)
+
+    ENDDO
+
+    YLPT1 (JCLAY)%ZDATA = 0._JPRB
+    YLPT1 (JSAND)%ZDATA = 0._JPRB
+    YLPT1 (JCOVER+1)%ZDATA = 2._JPRB
+    CALL YLFLLONLAT1%FINAL ()
+  ENDBLOCK
+ENDIF
+
 ! Create covers
 
 BLOCK
@@ -259,6 +330,7 @@ BLOCK
 
 ! Rotate gradient on target projection
 
+  IF (LLROTATE) &
   CALL ROTATE (YLFSSC1, YDGRID2, YLFSGR1)
 
   CALL INS1 (JZS2    , NEWFLD (YLFSSC1, "SFX.ZS_2"    , ZUNDEF))
@@ -458,6 +530,7 @@ WHERE (OSSO)
   YLPT2 (JSSO_DIR)%ZDATA = 0.5_JPRB * ATAN2 (ZM, ZL) * (180._JPRB / XPI) 
 END WHERE
 !$OMP END WORKSHARE
+
 !
 !*    8.2    S.S.O. slope
 !            ------------
@@ -467,6 +540,7 @@ WHERE (OSSO)
   YLPT2 (JSSO_SLOPE)%ZDATA = SQRT (ZK + SQRT (ZL*ZL + ZM*ZM))
 END WHERE
 !$OMP END WORKSHARE
+
 !
 !*    8.3    S.S.O. anisotropy
 !            -----------------
@@ -487,7 +561,7 @@ END WHERE
 
 !$OMP WORKSHARE 
 WHERE (OSSO)
-  YLPT2 (JSSO_STDEV)%ZDATA = SQRT (YLPT2 (JZS2)%ZDATA - YLPT2 (JZS)%ZDATA**2)
+  YLPT2 (JSSO_STDEV)%ZDATA = SQRT (MAX (YLPT2 (JZS2)%ZDATA - YLPT2 (JZS)%ZDATA**2, 0._JPRB))
 ELSE WHERE
   YLPT2 (JSSO_STDEV)%ZDATA = ZUNDEF
 END WHERE
@@ -802,6 +876,35 @@ CALL YDFL%DATA (YLPT2 (KRANK)%ZDATA)
 CALL YLFLDS2%ADD (YDFL)
 
 END SUBROUTINE
+
+FUNCTION CROSS (P1, P2) RESULT (P)
+
+REAL (KIND=JPRB), INTENT (IN) :: P1 (3), P2 (3)
+REAL (KIND=JPRB) :: P (3)
+
+
+P (1) = P1 (2) * P2 (3) - P2 (2) * P1 (3)
+P (2) = P1 (3) * P2 (1) - P2 (3) * P1 (1)
+P (3) = P1 (1) * P2 (2) - P2 (1) * P1 (2)
+
+END FUNCTION
+
+REAL (KIND=JPRB) FUNCTION NORM (P) 
+
+REAL (KIND=JPRB), INTENT (IN) :: P (3)
+
+NORM = SQRT (SUM (P * P))
+
+END FUNCTION
+
+ELEMENTAL LOGICAL FUNCTION ISINF (P)
+
+REAL (KIND=JPRB), INTENT (IN) :: P
+
+ISINF = ABS (P) > HUGE (P)
+
+END FUNCTION
+
 
 END
 

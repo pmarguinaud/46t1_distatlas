@@ -127,7 +127,7 @@ interpolationAimpl::interpolationAimpl
       //  which holds this point of grid #2
 
       atlas::PointLonLat lonlat1 = grid1.StructuredGrid::lonlat (i1 (jloc1)-1, j1 (jloc1)-1);
-      atlas::gidx_t iglo1 = grid1.ij2gidx (i1 (jloc1)-1, j1 (jloc1)-1);
+      atlas::gidx_t iglo1 = grid1.index (i1 (jloc1)-1, j1 (jloc1)-1);
       atlas::PointXY xy2 = proj2.xy (lonlat1);
 
       int iy2 = -1;
@@ -185,7 +185,7 @@ interpolationAimpl::interpolationAimpl
             }
         }
 
-      atlas::gidx_t iglo2 = (iy2 >= 0) && (ix2 >= 0) ? grid2.ij2gidx (ix2, iy2) : -1;
+      atlas::gidx_t iglo2 = (iy2 >= 0) && (ix2 >= 0) ? grid2.index (ix2, iy2) : -1;
 
       int iprc2 = iglo2 >= 0 ? dist2.partition (iglo2) : -1;
 
@@ -366,7 +366,7 @@ interpolationAimpl::interpolationAimpl
 
               atlas::idx_t ij[2];
 
-              grid2.gidx2ij (iglo2, ij);
+              grid2.index2ij (iglo2, ij[0], ij[1]);
               atlas::idx_t jloc2 = fs2.index (ij[0], ij[1]);
 
               // Check this (i, j) is held by current MPI task

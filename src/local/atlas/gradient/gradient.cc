@@ -65,8 +65,8 @@ rotate (const atlas::functionspace::StructuredColumns & fs,
       atlas::PointXY xy = atlas::PointXY (vxy (jloc, 0), vxy (jloc, 1));
       atlas::PointLonLat lonlat = proj2.lonlat (xy);
 
-      auto dir1 = proj1.getJacobianAtLonLat (lonlat);
-      auto dir2 = proj2.getJacobianAtLonLat (lonlat);
+      auto dir1 = proj1.jacobian (lonlat);
+      auto dir2 = proj2.jacobian (lonlat);
 
       double coslat = cos (deg2rad * lonlat.lat ());
 
@@ -197,7 +197,7 @@ gradient (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
       atlas::PointXY xy = atlas::PointXY (vxy (jloc, 0), vxy (jloc, 1));
       atlas::PointLonLat lonlat = proj.lonlat (xy);
 
-      auto dir = proj.getJacobianAtLonLat (lonlat);
+      auto dir = proj.jacobian (lonlat);
       auto inv = dir.inverse ();
 
       double xdx = cos (deg2rad * lonlat.lat ()) * inv.dlon_dx (), xdy = inv.dlat_dx ();
@@ -426,7 +426,7 @@ halfdiff (const atlas::functionspace::StructuredColumns & fs, const atlas::Field
       atlas::PointXY xy = atlas::PointXY (vxy (jloc, 0), vxy (jloc, 1));
       atlas::PointLonLat lonlat = proj.lonlat (xy);
 
-      auto dir = proj.getJacobianAtLonLat (lonlat);
+      auto dir = proj.jacobian (lonlat);
       auto inv = dir.inverse ();
 
       double xdx = cos (deg2rad * lonlat.lat ()) * inv.dlon_dx (), xdy = inv.dlat_dx ();

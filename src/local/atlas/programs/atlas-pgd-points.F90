@@ -100,9 +100,10 @@ ZEPS =  0.1_JPRB
 
 I = 1 + MODULO (KLOC-1, SIZE (ZLON))
 
-YLGRID = ATLAS_LONLATREGIONALGRID (4_JPIM, 4_JPIM, &
-                                 & ZLON (I) - ZEPS, ZLON (I) + ZEPS, &
-                                 & ZLAT (I) + ZEPS, ZLAT (I) - ZEPS)
+YLGRID = ATLAS_REGIONALGRID (NX=4_JPIM, NY=4_JPIM,    &
+       & NORTH=ZLAT (I) + ZEPS, WEST=ZLON (I) - ZEPS, &
+       & SOUTH=ZLAT (I) - ZEPS, EAST=ZLON (I) + ZEPS)
+
 
 CALL YLGRID%RETURN ()
 

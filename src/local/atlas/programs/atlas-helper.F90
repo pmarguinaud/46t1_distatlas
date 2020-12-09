@@ -63,10 +63,11 @@ YLCONF = ATLAS_CONFIG()
 
 SELECT CASE (CLDIST)
   CASE ('checkerboard') 
-    CALL YLCONF%SET ('type', 'checkerboard')
     IF (LLLIGHT) THEN
-      CALL YLCONF%SET ('light', .TRUE.)
+      CALL YLCONF%SET ('type', 'regular_bands')
       CALL YLCONF%SET ('blocksize', INT (YDGRID%NX (1)))
+    ELSE
+      CALL YLCONF%SET ('type', 'checkerboard')
     ENDIF
   CASE ('equal_regions')
     CALL YLCONF%SET ('type', 'equal_regions')

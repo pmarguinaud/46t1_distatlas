@@ -198,8 +198,8 @@ interpolation4impl::interpolation4impl
               }
           }
 
-        iw = (iy1 >= 0) && (ix1a >= 0) ? grid1.ij2gidx (ix1a, iy1) : -1;
-        ie = (iy1 >= 0) && (ix1b >= 0) ? grid1.ij2gidx (ix1b, iy1) : -1;
+        iw = (iy1 >= 0) && (ix1a >= 0) ? grid1.index (ix1a, iy1) : -1;
+        ie = (iy1 >= 0) && (ix1b >= 0) ? grid1.index (ix1b, iy1) : -1;
       };
 
       x1iy1_to_iwie (xy1.x (), iy1a, 
@@ -425,7 +425,7 @@ interpolation4impl::interpolation4impl
             {
               atlas::idx_t ij[2];
 
-              grid1.gidx2ij (jglo, ij);
+              grid1.index2ij (jglo, ij[0], ij[1]);
               jloc = fs1.index (ij[0], ij[1]);
 
               // Check this (i, j) is held by current MPI task

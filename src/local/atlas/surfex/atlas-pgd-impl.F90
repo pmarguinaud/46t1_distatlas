@@ -153,7 +153,6 @@ BLOCK
   CALL YLCONF%FINAL ()
 ENDBLOCK
 
-
 ! Define indices for all fields
 
 INFLD = 0

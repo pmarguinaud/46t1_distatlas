@@ -399,10 +399,15 @@ interpolation4impl::interpolation4impl
 
       for (int i = 0; i < insend; i++)
         comm.wait (reqsend[i]);
+
+      for (int i = 0; i < inrecv; i++)
+        comm.wait (reqrecv[i]);
+
     }
   else
     {
-      yl_send[0].iglo = iglobal1;
+      for (int j = 0; j < yl_send[0].iglo.size (); j++)
+        yl_send[0].iglo[j] = iglobal1[yl_recv[0].ioff+j];
     }
 
   // We have received the global indices we should transmit; decode them into
@@ -440,13 +445,6 @@ interpolation4impl::interpolation4impl
     }
 
   
-  if (llmpi)
-    {
-      // Wait for MPI requests to complete
-      for (int i = 0; i < inrecv; i++)
-        comm.wait (reqrecv[i]);
-    }
-
   if (inrecv > 0)
     isize_recv = yl_recv[0].ioff;
   for (const auto & r : yl_recv)
@@ -511,33 +509,37 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
                                     yl_recv[i].iprc, 101);
 
       comm.barrier ();
+    }
 
   // Send data
 
-      for (int i = 0; i < yl_send.size (); i++)
-        {
-          int ioff = yl_send[i].ioff;
-          int icnt = yl_send[i].icnt;
+  for (int i = 0; i < yl_send.size (); i++)
+    {
+      int ioff = yl_send[i].ioff;
+      int icnt = yl_send[i].icnt;
 // TODO: Collapse loops
-          for (int jfld = 0; jfld < infld; jfld++)
-            {
-              auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
+      for (int jfld = 0; jfld < infld; jfld++)
+        {
+          auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
 #pragma omp parallel for if (llopenmp)
-              for (int k = 0; k < icnt; k++)
-                {
+          for (int k = 0; k < icnt; k++)
+            {
 if (k < 0) abort ();
 if (k >= pgp1[jfld].size ()) abort ();
-                  zbufs[infld*ioff+jfld*icnt+k] = v (yl_send[i].iloc[k]);
-                }
+              zbufs[infld*ioff+jfld*icnt+k] = v (yl_send[i].iloc[k]);
             }
-          reqsend[i] = comm.iSend (&zbufs[infld*ioff], icnt * infld,
-                                   yl_send[i].iprc, 101);
+        }
+
+      if (llmpi)
+        reqsend[i] = comm.iSend (&zbufs[infld*ioff], icnt * infld,
+                                 yl_send[i].iprc, 101);
+      else
+        {
+          for (int j = 0; j < infld * icnt; j++)
+            zbufr[infld*yl_recv[0].ioff+j] = zbufs[j];
         }
     }
-  else
-    {
-      zbufr.assign (&zbufs[0], &zbufs[0] + zbufs.size ());
-    }
+
 
   // Create fields in pgp2
   
@@ -671,6 +673,7 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
       bool llundef = pgp1[jfld].metadata ().get ("undef", zundef);
       auto v2  = atlas::array::make_view<T,1> (pgp2 [jfld]);
       auto v2e = atlas::array::make_view<T,1> (pgp2e[jfld]);
+
 #pragma omp parallel for if (llopenmp)
       for (int jloc2 = 0; jloc2 < size2; jloc2++)
         {

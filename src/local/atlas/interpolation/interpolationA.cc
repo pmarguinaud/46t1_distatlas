@@ -663,6 +663,11 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1, const opt_t opt) 
 
       switch (opt)
         {
+          case opt_t::OPT_SUM:
+            reduce (v2, v2e, size2, static_cast<T> (0), zundef, 
+                   [] (int jcnt, T t, T zundef) { return jcnt > 0 ? t : zundef; },
+                   [] (T t1, T t2) { return t1 + t2; });
+          break;
           case opt_t::OPT_AVG:
             reduce (v2, v2e, size2, static_cast<T> (0), zundef, 
                    [] (int jcnt, T t, T zundef) { return jcnt > 0 ? t / static_cast<T> (jcnt) : zundef; },

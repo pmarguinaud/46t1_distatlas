@@ -15,7 +15,8 @@ public:
   {
     OPT_AVG=0,
     OPT_MIN=1,
-    OPT_MAX=2
+    OPT_MAX=2,
+    OPT_SUM=3
   };
 
   interpolationAimpl () = default;

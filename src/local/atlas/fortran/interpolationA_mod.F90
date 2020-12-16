@@ -32,6 +32,7 @@ contains
   procedure, public :: opt_avg 
   procedure, public :: opt_min
   procedure, public :: opt_max
+  procedure, public :: opt_sum
 end type
 
 interface interpolationA
@@ -205,6 +206,11 @@ end function
 integer (c_int) function opt_max (this)
   class (interpolationA), intent (in) :: this
   opt_max = 2
+end function
+
+integer (c_int) function opt_sum (this)
+  class (interpolationA), intent (in) :: this
+  opt_sum = 3
 end function
 
 

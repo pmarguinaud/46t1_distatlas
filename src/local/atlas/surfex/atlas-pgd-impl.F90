@@ -44,6 +44,7 @@ REAL (KIND=JPRB), OPTIONAL, POINTER          :: PELLIPSE (:)
 
 #include "atlas-compute-covers.h"
 #include "atlas-compute-sso.h"
+#include "atlas-compute-aos.h"
 
 ! Grids of input files
 

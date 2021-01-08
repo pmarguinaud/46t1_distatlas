@@ -41,6 +41,8 @@ ln -sf /scratch/work/marguina/SFX_databases$RED/SAND_HWSD_MOY.hdr           SURF
 ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.dir           SURFPROP.ARGILE.dir
 ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr           SURFPROP.ARGILE.hdr
 
+ln -sf /scratch/work/marguina/clim/dir/*_GL .
+
 
 rm Const.Clim*
 

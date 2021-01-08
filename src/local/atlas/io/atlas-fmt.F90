@@ -44,7 +44,7 @@ USE PARKIND1, ONLY : JPRB
 IMPORT :: ATLAS_FMT_t
 CLASS (ATLAS_FMT_t),           INTENT (IN)    :: THIS
 CHARACTER (LEN=*),             INTENT (IN)    :: CDNAME
-REAL (KIND=JPRB),              INTENT (OUT)   :: PFLDG (:)
+REAL (KIND=JPRB),              INTENT (IN)    :: PFLDG (:)
 LOGICAL,                       INTENT (INOUT) :: LDUNDEF
 REAL (KIND=JPRB),              INTENT (INOUT) :: PUNDEF
 END SUBROUTINE WRITE_f

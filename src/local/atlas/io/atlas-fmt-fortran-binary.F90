@@ -71,10 +71,12 @@ BLOCK
 
   CALL YLCFGR%SET ("nx", ILON)
   CALL YLCFGR%SET ("ny", ILAT)
-  CALL YLCFGR%SET ("type", "regular_lonlat")
+  CALL YLCFGR%SET ("type", "shifted_lonlat")
   CALL YLCFDO%SET ("type", "global") 
   CALL YLCFDO%SET ("xmin", ZLONW)
   CALL YLCFDO%SET ("xmax", ZLONE+ZLOND)
+  CALL YLCFDO%SET ("west", ZLOND / 2._JPRB)
+
   CALL YLCFDO%SET ("ymin", ZLATS)
   CALL YLCFDO%SET ("ymax", ZLATN)
   CALL YLCFDO%SET ("units", "degrees")

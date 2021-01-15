@@ -48,7 +48,7 @@ rm Const.Clim*
 
 if [ 1 -eq 1 ]
 then
-OMP_NUM_THREADS=1 $PACK/bin/ATLAS_CLIM
+OMP_NUM_THREADS=1 $PACK/bin/ATLAS_CLIM > ATLAS_CLIM.eo 2>&1
 else
 
 /opt/softs/intel/2018.04/impi/2018.5.274/intel64/bin/mpirun -np 2 -ppn 2 \
@@ -60,7 +60,8 @@ ls -lrt
 
 lfitools=$PACK/bin/lfitools
 
-for p in Const.Clim
+for p in Const.Clim Const.Clim.m01 Const.Clim.m02 Const.Clim.m03 Const.Clim.m04 Const.Clim.m05 Const.Clim.m06 \
+  Const.Clim.m07 Const.Clim.m08 Const.Clim.m09 Const.Clim.m10 Const.Clim.m11 Const.Clim.m12
 do
 $lfitools lfi_alt_index --lfi-file-in $p.* --lfi-file-out $p
 $lfitools lfi_alt_pack --lfi-file-in $p --lfi-file-out $p.pack

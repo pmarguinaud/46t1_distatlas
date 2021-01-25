@@ -47,7 +47,7 @@ ln -sf /scratch/work/marguina/clim/dir/abc_coef.* .
 
 
 
-rm Const.Clim*
+rm Const.Clim* INCLI*
 
 if [ 1 -eq 1 ]
 then
@@ -63,10 +63,10 @@ ls -lrt
 
 lfitools=$PACK/bin/lfitools
 
-for p in Const.Clim Const.Clim.m01 Const.Clim.m02 Const.Clim.m03 Const.Clim.m04 Const.Clim.m05 Const.Clim.m06 \
-  Const.Clim.m07 Const.Clim.m08 Const.Clim.m09 Const.Clim.m10 Const.Clim.m11 Const.Clim.m12
+for c in Const.Clim.*.0001
 do
-$lfitools lfi_alt_index --lfi-file-in $p.* --lfi-file-out $p
+p=$(basename $c .0001)
+$lfitools lfi_alt_index --lfi-file-in $p.0??? --lfi-file-out $p
 $lfitools lfi_alt_pack --lfi-file-in $p --lfi-file-out $p.pack
 done
 

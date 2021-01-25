@@ -25,6 +25,7 @@ namespace
 
 const double deg2rad = M_PI / 180.0;
 const double rad2deg = 180.0 / M_PI;
+const double pi = M_PI;
 
 
 template <typename T>
@@ -99,7 +100,6 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
   }
 }
 
-
 }
 
 interpolation4impl::interpolation4impl 
@@ -139,7 +139,6 @@ interpolation4impl::interpolation4impl
 #pragma omp parallel for if (llopenmp)
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
     {
-
       atlas::PointLonLat lonlat2 = grid2.StructuredGrid::lonlat (i2 (jloc2)-1, j2 (jloc2)-1);
       atlas::PointXY xy1 = proj1.xy (lonlat2);
 
@@ -173,7 +172,7 @@ interpolation4impl::interpolation4impl
             }
           iy1b = iy1a + 1;
         }
-       
+
       // Search along X axis
 
       auto x1iy1_to_iwie = [&] (double x1, int iy1, atlas::gidx_t & iw, atlas::gidx_t & ie)
@@ -594,6 +593,8 @@ interpolation4impl::create_weights ()
   auto xyz1 = getXYZ (fs1);
   auto xyz2 = getXYZ (fs2);
 
+  auto glob2 = fs2.global_index ();
+
   atlas::FieldSet xyz2e = shuffle<double> (xyz1);
 
   weights4.values.resize (4 * size2);
@@ -601,6 +602,7 @@ interpolation4impl::create_weights ()
   auto x2  = atlas::array::make_view<double,1> (xyz2 [0]);
   auto y2  = atlas::array::make_view<double,1> (xyz2 [1]);
   auto z2  = atlas::array::make_view<double,1> (xyz2 [2]);
+  auto g2  = atlas::array::make_view<atlas::gidx_t,1> (glob2);
   
   auto x2e = atlas::array::make_view<double,1> (xyz2e[0]);
   auto y2e = atlas::array::make_view<double,1> (xyz2e[1]);
@@ -610,11 +612,35 @@ interpolation4impl::create_weights ()
 #pragma omp parallel for if (llopenmp)
   for (int jloc2 = 0; jloc2 < size2; jloc2++) 
     {
+      atlas::idx_t i2, j2;
+
+      grid2.index2ij (g2 (jloc2)-1, i2, j2);
+       
+      // Assess target local resolution
+      const double mm = ([&] ()
+      {
+        auto ij2xyz = [&] (const int i, const int j)
+        {
+          double lonlat[2]; grid2.lonlat (i, j, lonlat);
+          double lon = lonlat[0] * deg2rad, lat = lonlat[1] * deg2rad;
+          double coslon = std::cos (lon), sinlon = std::sin (lon);
+          double coslat = std::cos (lat), sinlat = std::sin (lat);
+          return atlas::Point3 (coslon * coslat, sinlon * coslat, sinlat);
+        };
+
+        int iA = i2, jA = j2, iB = i2 > 0 ? i2 - 1 : i2 + 1, jB = j2;
+        auto PA = ij2xyz (iA, jA);
+        auto PB = ij2xyz (iB, jB);
+        return std::acos (atlas::Point3::dot (PA, PB));
+      }) ();
+
+
+      const int c[4] = {ISW, ISE, INW, INE};
+
+#ifdef UNDEF
       // The weight is the inverse of the distance in radian between the target point 
       // and the points used for interpolation
 
-
-      int c[4] = {ISW, ISE, INW, INE};
       for (int j = 0; j < 4; j++)
         {
           int jj = c[j];
@@ -626,8 +652,97 @@ interpolation4impl::create_weights ()
             // Prevent division by zero
             weights4.values[4*(jloc2+1)+jj-1] = 1.0 / std::max (1.0E-10, 
               acos (x2[jloc2] * x2e[jind1] + y2[jloc2] * y2e[jind1] + z2[jloc2] * z2e[jind1])); // Scalar product
-
         }
+#else
+
+      const double zmax = std::numeric_limits<double>::max ();
+
+      const int next[4] = {1, 3, 0, 2}, prev[4] = {2, 0, 3, 1};
+
+      double distM[4], dist[4][4];
+      bool skip[4];
+      
+      for (int j = 0; j < 4; j++)
+        distM[j] = zmax;
+
+      for (int i = 0; i < 4; i++)
+      for (int j = 0; j < 4; j++)
+        dist[i][j] = i == j ? 0. : zmax;
+      
+      for (int j = 0; j < 4; j++)
+        {
+          int jj = c[j];
+          int jind1 = isort[4*(jloc2+1)+jj-1];
+          skip[j] = jind1 < iskip;
+        }
+
+      for (int j = 0; j < 4; j++)
+        {
+          if (skip[j])
+            continue;           
+
+          int jj = c[j];
+          int jind1 = isort[4*(jloc2+1)+jj-1];
+
+          distM[j] = acos (x2[jloc2] * x2e[jind1] + y2[jloc2] * y2e[jind1] + z2[jloc2] * z2e[jind1]); // Scalar product
+
+          for (int i = 0; i < j; i++)
+            {
+              if (skip[i])
+                continue;
+
+              int ii = c[i];
+              int iind1 = isort[4*(jloc2+1)+ii-1];
+
+              dist[j][i] = dist[i][j] = acos (x2e[iind1] * x2e[jind1] + y2e[iind1] * y2e[jind1] + z2e[iind1] * z2e[jind1]); 
+            }
+        }
+
+      const double dref = mm / 1000.;
+
+      bool near[4] = {false, false, false, false};
+
+      for (int j = 0; j < 4; j++)
+        {
+          int jn = next[j];
+          near[j] = (distM[j] + distM[jn] - dist[j][jn]) < dref;
+        }
+
+      for (int j = 0; j < 4; j++)
+        {
+          int jj = c[j];
+
+          weights4.values[4*(jloc2+1)+jj-1] = 0;
+
+          if (skip[j])
+            continue;
+
+          int jp = prev[j], jn = next[j];
+
+          if (near[j])
+            {
+              for (int i = 0; i < 4; i++)
+                weights4.values[4*(jloc2+1)+c[i]-1] = 0;
+              int jjn = c[jn];
+
+              double a = distM[j] / dist[j][jn];
+
+              weights4.values[4*(jloc2+1)+jj -1] = 1. - a;
+              weights4.values[4*(jloc2+1)+jjn-1] = a;
+          
+              break;
+            }
+          else
+            {
+              double w = 1.;
+              if (! skip[jp]) w = w * (distM[j] + distM[jp] - dist[j][jp]);
+              if (! skip[jn]) w = w * (distM[j] + distM[jn] - dist[j][jn]);
+              weights4.values[4*(jloc2+1)+jj-1] = 1.0 / std::max (1.0E-30, w);
+            }
+        }
+      
+
+#endif
 
       // Rebalance weights so that their sum be 1
       
@@ -681,7 +796,6 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
           int kise = 4*(jloc2+1)+ISE-1, jise = isort[kise];
           int kinw = 4*(jloc2+1)+INW-1, jinw = isort[kinw];
           int kine = 4*(jloc2+1)+INE-1, jine = isort[kine];
-
           if (llundef)
             {
               T vs = static_cast<T> (0);

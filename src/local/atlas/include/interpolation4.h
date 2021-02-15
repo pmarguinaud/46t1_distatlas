@@ -12,11 +12,17 @@ class interpolation4impl : public atlas::util::Object
 {
 public:
   
+  typedef enum
+  {
+    DIST = 0,
+    BILN = 1
+  } weights_t;
+
   interpolation4impl () = default;
 
   interpolation4impl (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
                       const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
-                      const bool ldopenmp);
+                      const bool, const weights_t = DIST);
 
   template <typename T> atlas::FieldSet
   shuffle (const atlas::FieldSet &) const;
@@ -44,7 +50,8 @@ public:
 
 private:
 
-  bool llopenmp = true;
+  const bool llopenmp = true;
+  const weights_t weights_type = DIST;
 
   class weights4_t
   {
@@ -135,7 +142,7 @@ extern "C"
 interpolation4impl * interpolation4__new 
   (const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
    const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
-   const int);
+   const int, const int);
 atlas::field::FieldSetImpl * interpolation4__interpolate (interpolation4impl *, atlas::field::FieldSetImpl *);
 };
 

@@ -105,8 +105,8 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
 interpolation4impl::interpolation4impl 
 (const atlas::grid::Distribution & _dist1, const atlas::functionspace::StructuredColumns & _fs1,
  const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2,
- const bool ldopenmp)
-: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2), llopenmp (ldopenmp)
+ const bool ldopenmp, const weights_t _weights_type)
+: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2), llopenmp (ldopenmp), weights_type (_weights_type)
 {
   ATLAS_TRACE_SCOPE ("interpolation4impl::interpolation4impl")
   {
@@ -831,12 +831,12 @@ DEF (double);
 interpolation4impl * interpolation4__new 
   (const atlas::grid::DistributionImpl * dist1, const atlas::functionspace::detail::StructuredColumns * fs1,
    const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2,
-   const int ldopenmp)
+   const int ldopenmp, const int weights_type)
 {
   interpolation4impl * int4 = new interpolation4impl
   (atlas::grid::Distribution (dist1), atlas::functionspace::StructuredColumns (fs1), 
    atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2),
-   ldopenmp > 0);
+   ldopenmp > 0, static_cast<interpolation4impl::weights_t> (weights_type));
   return int4;
 }
 

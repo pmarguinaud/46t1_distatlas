@@ -146,9 +146,9 @@ public:
   }
 
   template <typename T> atlas::FieldSet
-  interpolate (const atlas::FieldSet & pgp1, const opt_t = opt_t::OPT_AVG) const
+  interpolate (const atlas::FieldSet & pgp1, const opt_t opt = opt_t::OPT_AVG) const
   {
-    return get ()->interpolate<T> (pgp1, opt_t);
+    return get ()->interpolate<T> (pgp1, opt);
   }
 };
 

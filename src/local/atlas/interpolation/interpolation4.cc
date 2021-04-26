@@ -66,10 +66,9 @@ void ompiota (I b, I e, J j)
 atlas::FieldSet 
 getXYZ (const atlas::functionspace::StructuredColumns & fs)
 {
+  atlas::FieldSet xyz;
   ATLAS_TRACE_SCOPE ("getXYZ")
   {
-
-  atlas::FieldSet xyz;
 
   auto t = atlas::array::DataType::kind<double> ();
   auto s = atlas::array::make_shape (fs.sizeOwned ());
@@ -96,8 +95,8 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
       z (jloc) = sinlat;
     }
 
-  return xyz;
   }
+  return xyz;
 }
 
 }
@@ -460,10 +459,10 @@ interpolation4impl::interpolation4impl
 template <typename T> atlas::FieldSet
 interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
 {
+  atlas::FieldSet pgp2e;
   ATLAS_TRACE_SCOPE ("interpolation4impl::shuffle")
   {
 
-  atlas::FieldSet pgp2e;
 
   int infld = pgp1.size ();
 
@@ -580,8 +579,8 @@ if (k >= pgp1[jfld].size ()) abort ();
     for (auto & req : reqsend)
       comm.wait (req);
 
-  return pgp2e;
   }
+  return pgp2e;
 }
 
 void
@@ -760,10 +759,9 @@ interpolation4impl::create_weights ()
 template <typename T> atlas::FieldSet
 interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
 {
+  atlas::FieldSet pgp2;
   ATLAS_TRACE_SCOPE ("interpolation4impl::interpolate")
   {
-
-  atlas::FieldSet pgp2;
 
   int infld = pgp1.size ();
 
@@ -816,8 +814,8 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
         }
     }
 
-  return pgp2;
   }
+  return pgp2;
 }
 
 

@@ -18,6 +18,7 @@
 #include <map>
 #include <string>  
 #include <type_traits>
+#include <numeric>
 		
 
 #include <sys/time.h>
@@ -484,10 +485,9 @@ interpolationAimpl::interpolationAimpl
 template <typename T>
 atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
 {
+  atlas::FieldSet pgp2e;
   ATLAS_TRACE_SCOPE ("interpolationAimpl::shuffle")
   {
-
-  atlas::FieldSet pgp2e;
 
   auto & comm = atlas::mpi::comm ();
   const int myproc = comm.rank ();
@@ -600,8 +600,8 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
         comm.wait (reqsend[i]);
     }
 
-  return pgp2e;
   }
+  return pgp2e;
 }
 
 template <typename T, typename O, typename E>
@@ -631,10 +631,10 @@ void interpolationAimpl::reduce (atlas::array::ArrayView<T,1> & v2, atlas::array
 template <typename T> atlas::FieldSet
 interpolationAimpl::interpolate (const atlas::FieldSet & pgp1, const opt_t opt) const
 {
+  atlas::FieldSet pgp2;
   ATLAS_TRACE_SCOPE ("interpolationAimpl::interpolate")
   {
 
-  atlas::FieldSet pgp2;
   atlas::FieldSet pgp2e = shuffle<T> (pgp1);
 
   size_t size2 = fs2.sizeOwned ();
@@ -686,8 +686,8 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1, const opt_t opt) 
         }
     } 
 
-  return pgp2;
   }
+  return pgp2;
 }
 
 #define DEF(T) \

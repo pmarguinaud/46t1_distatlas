@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <string.h>
 #include <errno.h>
+#include <stdlib.h>
 
 
 void fi_gettimeofday_ (double * t)

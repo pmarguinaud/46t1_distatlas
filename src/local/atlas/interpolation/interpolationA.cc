@@ -2,6 +2,7 @@
 #include "ompsort.h"
 
 
+#include "eckit/mpi/Comm.h"
 #include "atlas/runtime/Trace.h"
 #include "atlas/runtime/Exception.h"
 #include "atlas/grid.h"
@@ -68,8 +69,9 @@ void ompiota (I b, I e, J j)
 
 interpolationAimpl::interpolationAimpl 
 (const atlas::grid::Distribution & _dist1, const atlas::functionspace::StructuredColumns & _fs1,
- const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
-: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
+ const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2,
+ const bool ldopenmp)
+: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2), llopenmp (ldopenmp)
 {
   ATLAS_TRACE_SCOPE ("interpolationAimpl::interpolationAimpl")
   {
@@ -80,6 +82,7 @@ interpolationAimpl::interpolationAimpl
   auto & comm = atlas::mpi::comm ();
 
   int myproc = comm.rank (), nproc = comm.size ();
+  const bool llmpi = nproc > 1;
 
   std::vector<atlas::gidx_t> iglo1all (4 * fs2.sizeOwned ());
 
@@ -116,7 +119,7 @@ interpolationAimpl::interpolationAimpl
   ATLAS_TRACE_SCOPE ("Coordinates mapping") 
   {
 
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
   for (int jloc1 = 0; jloc1 < size1; jloc1++)
     {
       //  For all points of grid #1 (only in our region), we find the nearest point of grid #2. Here,
@@ -124,7 +127,7 @@ interpolationAimpl::interpolationAimpl
       //  which holds this point of grid #2
 
       atlas::PointLonLat lonlat1 = grid1.StructuredGrid::lonlat (i1 (jloc1)-1, j1 (jloc1)-1);
-      atlas::gidx_t iglo1 = grid1.ij2gidx (i1 (jloc1)-1, j1 (jloc1)-1);
+      atlas::gidx_t iglo1 = grid1.index (i1 (jloc1)-1, j1 (jloc1)-1);
       atlas::PointXY xy2 = proj2.xy (lonlat1);
 
       int iy2 = -1;
@@ -182,7 +185,7 @@ interpolationAimpl::interpolationAimpl
             }
         }
 
-      atlas::gidx_t iglo2 = (iy2 >= 0) && (ix2 >= 0) ? grid2.ij2gidx (ix2, iy2) : -1;
+      atlas::gidx_t iglo2 = (iy2 >= 0) && (ix2 >= 0) ? grid2.index (ix2, iy2) : -1;
 
       int iprc2 = iglo2 >= 0 ? dist2.partition (iglo2) : -1;
 
@@ -210,7 +213,10 @@ interpolationAimpl::interpolationAimpl
   for (int iproc = 1; iproc < nproc; iproc++)
     isendoff[iproc] = isendoff[iproc-1] + isendcnt[iproc-1];
 
-  comm.allToAll (isendcnt, irecvcnt);
+  if (llmpi)
+    comm.allToAll (isendcnt, irecvcnt);
+  else
+    irecvcnt[0] = isendcnt[0];
 
   ATLAS_TRACE_SCOPE ("Sort points by task, global indice")
   {
@@ -225,7 +231,7 @@ interpolationAimpl::interpolationAimpl
              if (prcglo1[a].iprc2 == prcglo1[b].iprc2)
                return prcglo1[a].iglo2 < prcglo1[b].iglo2;
              return prcglo1[a].iprc2 < prcglo1[b].iprc2;
-           });
+        }, llopenmp);
 
   prcglo1 = reorder (prcglo1, iord_by_prc2glo2);
 
@@ -255,13 +261,17 @@ interpolationAimpl::interpolationAimpl
         yl_recv[inrecv].iproc = iproc;
         yl_exch_recv[inrecv].size = irecvcnt[iproc];
         yl_exch_recv[inrecv].iglo1iglo2.resize (2 * irecvcnt[iproc]);
-        reqrecv[inrecv] = comm.iReceive (&yl_exch_recv[inrecv].iglo1iglo2[0],
-                                        yl_exch_recv[inrecv].iglo1iglo2.size (),
-                                        iproc, 101);
+
+        if (llmpi)
+          reqrecv[inrecv] = comm.iReceive (&yl_exch_recv[inrecv].iglo1iglo2[0],
+                                          yl_exch_recv[inrecv].iglo1iglo2.size (),
+                                          iproc, 101);
+          
         inrecv++;
       }
 
-  comm.barrier ();
+  if (llmpi)
+    comm.barrier ();
 
   // Send
 
@@ -278,8 +288,10 @@ interpolationAimpl::interpolationAimpl
         yl_send[insend].isize = isendcnt[iproc];
         yl_send[insend].iloc.resize (isendcnt[iproc]);
      
+
+
         // List of points of grid #1 to send to iproc
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
         for (int i = 0; i < isendcnt[iproc]; i++)
           {
             int jind1 = iskip + isendoff[iproc] + i;
@@ -288,9 +300,13 @@ interpolationAimpl::interpolationAimpl
             yl_exch_send[insend].iglo1iglo2[2*i+1] = prcglo1[jind1].iglo2;
           }
 
-        reqsend[insend] = comm.iSend (&yl_exch_send[insend].iglo1iglo2[0],
-                                     yl_exch_send[insend].iglo1iglo2.size (),
-                                     iproc, 101);
+        if (llmpi)
+          reqsend[insend] = comm.iSend (&yl_exch_send[insend].iglo1iglo2[0],
+                                       yl_exch_send[insend].iglo1iglo2.size (),
+                                       iproc, 101);
+        else
+          yl_exch_recv[0].iglo1iglo2 = yl_exch_send[0].iglo1iglo2;
+
         insend++;
       }
 
@@ -302,21 +318,22 @@ interpolationAimpl::interpolationAimpl
                      {
                        return a + s.isize;
                      });
- 
+  if (llmpi)
+    {
+      for (int i = 0; i < inrecv; i++)
+        comm.wait (reqrecv[i]);
 
-  for (int i = 0; i < inrecv; i++)
-    comm.wait (reqrecv[i]);
-
-  // TODO : move wait send further
-  for (int i = 0; i < insend; i++)
-    comm.wait (reqsend[i]);
+      // TODO : move wait send further
+      for (int i = 0; i < insend; i++)
+        comm.wait (reqsend[i]);
+    }
 
   for (auto & yl_exch : yl_exch_send)
     yl_exch.iglo1iglo2.clear ();
 
   ATLAS_TRACE_SCOPE ("Prepare receive descriptors")
   {
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
   for (int ii = 0; ii < yl_recv.size (); ii++) 
     {
       // Total number of points we get from this task
@@ -338,7 +355,7 @@ interpolationAimpl::interpolationAimpl
       // Count number of different remote points for each local point on grid #2
       
       yl_recv[ii].desc.resize (inloc);
-      
+
       jglo2 = -1;
       inloc = 0;
       for (int jj = 0; jj < yl_exch_recv[ii].size; jj++)
@@ -349,7 +366,7 @@ interpolationAimpl::interpolationAimpl
 
               atlas::idx_t ij[2];
 
-              grid2.gidx2ij (iglo2, ij);
+              grid2.index2ij (iglo2, ij[0], ij[1]);
               atlas::idx_t jloc2 = fs2.index (ij[0], ij[1]);
 
               // Check this (i, j) is held by current MPI task
@@ -412,7 +429,7 @@ interpolationAimpl::interpolationAimpl
 
   for (int ii = 0, jl = 0; ii < yl_recv.size (); ii++)
     {
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
       for (int jj = 0; jj < yl_recv[ii].desc.size (); jj++)
         {
           int jloc2 = yl_recv[ii].desc[jj].iloc         ;
@@ -427,7 +444,7 @@ interpolationAimpl::interpolationAimpl
   for (int ii = 0, jl = 0; ii < yl_exch_recv.size (); ii++)
     {
       size_t isize = yl_exch_recv[ii].iglo1iglo2.size () / 2;
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
       for (int jj = 0; jj < isize; jj++)
         isortk[jl+jj].iglo1 = yl_exch_recv[ii].iglo1iglo2[2*jj+0];
       jl = jl + isize;
@@ -443,7 +460,7 @@ interpolationAimpl::interpolationAimpl
                if (isortk[a].jloc2 == isortk[b].jloc2) 
                  return isortk[a].iglo1 < isortk[b].iglo1;
                return isortk[a].jloc2 < isortk[b].jloc2;
-             });
+             }, llopenmp);
 
     isort = reverse (iord);
   }
@@ -461,6 +478,7 @@ interpolationAimpl::interpolationAimpl
 
 
   }
+
 }
 
 template <typename T>
@@ -473,6 +491,7 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
 
   auto & comm = atlas::mpi::comm ();
   const int myproc = comm.rank ();
+  const bool llmpi = comm.size () > 1;
 
   const int infld = pgp1.size ();
   const int insend = yl_send.size ();
@@ -498,11 +517,13 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
     {
       int iproc = yl_recv[ii].iproc;
       size_t isize = yl_recv[ii].isize;
-      reqrecv[ii] = comm.iReceive (&zbufr[ioffr], isize * infld, iproc, 101);
+      if (llmpi)
+        reqrecv[ii] = comm.iReceive (&zbufr[ioffr], isize * infld, iproc, 101);
       ioffr = ioffr + infld * isize;
     }
 
-  comm.barrier ();
+  if (llmpi)
+    comm.barrier ();
 
   std::vector<size_t> ioffs_all (insend);
 
@@ -530,19 +551,25 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
       size_t ioffs = ioffs_all[ii];
       int iproc = yl_send[ii].iproc;
       size_t isize = yl_send[ii].isize;
-#pragma omp parallel for collapse (2)
+#pragma omp parallel for collapse (2) if (llopenmp)
       for (int jfld = 0; jfld < infld; jfld++)
         for (int jj = 0; jj < isize; jj++)
           {
             auto & v = fv1[jfld];
             zbufs[ioffs+jfld*isize+jj] = v (yl_send[ii].iloc[jj]);
           }
-      reqsend[ii] = comm.iSend (&zbufs[ioffs], infld * isize, iproc, 101);
+      if (llmpi)
+        reqsend[ii] = comm.iSend (&zbufs[ioffs], infld * isize, iproc, 101);
+      else
+        zbufr.assign (&zbufs[0], &zbufs[0] + infld * isize);
     }
 
+  if (llmpi)
+    {
 // TODO: Use MPI_WAITANY
-  for (int i = 0; i < inrecv; i++)
-    comm.wait (reqrecv[i]);
+      for (int i = 0; i < inrecv; i++)
+        comm.wait (reqrecv[i]);
+    }
 
   std::vector<size_t> ioffr_all (inrecv);
 
@@ -558,7 +585,7 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
       size_t ioffr = ioffr_all[ii];
       size_t isize = yl_recv[ii].isize;
 
-#pragma omp parallel for collapse (2)
+#pragma omp parallel for collapse (2) if (llopenmp)
       for (int jfld = 0; jfld < infld; jfld++)
         for (int jj = 0; jj < isize; jj++)
           {
@@ -567,8 +594,11 @@ atlas::FieldSet interpolationAimpl::shuffle (const atlas::FieldSet & pgp1) const
           }
     }
 
-  for (int i = 0; i < insend; i++)
-    comm.wait (reqsend[i]);
+  if (llmpi)
+    {
+      for (int i = 0; i < insend; i++)
+        comm.wait (reqsend[i]);
+    }
 
   return pgp2e;
   }
@@ -578,7 +608,7 @@ template <typename T, typename O, typename E>
 void interpolationAimpl::reduce (atlas::array::ArrayView<T,1> & v2, atlas::array::ArrayView<T,1> & v2e, 
                                  const size_t size2, T t0, T zundef, E eval, O op) const
 {
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
   for (int jloc2 = 0; jloc2 < size2; jloc2++)
     {
       int ioff = getOff (jloc2); 
@@ -633,6 +663,11 @@ interpolationAimpl::interpolate (const atlas::FieldSet & pgp1, const opt_t opt) 
 
       switch (opt)
         {
+          case opt_t::OPT_SUM:
+            reduce (v2, v2e, size2, static_cast<T> (0), zundef, 
+                   [] (int jcnt, T t, T zundef) { return jcnt > 0 ? t : zundef; },
+                   [] (T t1, T t2) { return t1 + t2; });
+          break;
           case opt_t::OPT_AVG:
             reduce (v2, v2e, size2, static_cast<T> (0), zundef, 
                    [] (int jcnt, T t, T zundef) { return jcnt > 0 ? t / static_cast<T> (jcnt) : zundef; },
@@ -663,11 +698,13 @@ DEF (double);
 
 interpolationAimpl * interpolationA__new 
   (const atlas::grid::DistributionImpl * dist1, const atlas::functionspace::detail::StructuredColumns * fs1,
-   const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2)
+   const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2,
+   const int ldopenmp)
 {
   interpolationAimpl * intA = new interpolationAimpl
   (atlas::grid::Distribution (dist1), atlas::functionspace::StructuredColumns (fs1), 
-   atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2));
+   atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2),
+   ldopenmp > 0);
   return intA;
 }
 

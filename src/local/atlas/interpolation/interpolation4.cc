@@ -25,6 +25,7 @@ namespace
 
 const double deg2rad = M_PI / 180.0;
 const double rad2deg = 180.0 / M_PI;
+const double pi = M_PI;
 
 
 template <typename T>
@@ -99,13 +100,13 @@ getXYZ (const atlas::functionspace::StructuredColumns & fs)
   }
 }
 
-
 }
 
 interpolation4impl::interpolation4impl 
 (const atlas::grid::Distribution & _dist1, const atlas::functionspace::StructuredColumns & _fs1,
- const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2)
-: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2)
+ const atlas::grid::Distribution & _dist2, const atlas::functionspace::StructuredColumns & _fs2,
+ const bool ldopenmp, const weights_t _weights_type)
+: dist1 (_dist1), dist2 (_dist2), grid1 (_fs1.grid ()), grid2 (_fs2.grid ()), fs1 (_fs1), fs2 (_fs2), llopenmp (ldopenmp), weights_type (_weights_type)
 {
   ATLAS_TRACE_SCOPE ("interpolation4impl::interpolation4impl")
   {
@@ -115,6 +116,7 @@ interpolation4impl::interpolation4impl
 
   auto & comm = atlas::mpi::comm ();
   int irank = comm.rank (), nproc = comm.size ();
+  const bool llmpi = nproc > 1;
 
   std::vector<atlas::gidx_t> iglo1all (4 * fs2.sizeOwned ());
 
@@ -134,10 +136,9 @@ interpolation4impl::interpolation4impl
 
   ATLAS_TRACE_SCOPE ("Coordinates mapping")
   {
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
   for (int jloc2 = 0; jloc2 < fs2.sizeOwned (); jloc2++)
     {
-
       atlas::PointLonLat lonlat2 = grid2.StructuredGrid::lonlat (i2 (jloc2)-1, j2 (jloc2)-1);
       atlas::PointXY xy1 = proj1.xy (lonlat2);
 
@@ -171,7 +172,7 @@ interpolation4impl::interpolation4impl
             }
           iy1b = iy1a + 1;
         }
-       
+
       // Search along X axis
 
       auto x1iy1_to_iwie = [&] (double x1, int iy1, atlas::gidx_t & iw, atlas::gidx_t & ie)
@@ -196,8 +197,8 @@ interpolation4impl::interpolation4impl
               }
           }
 
-        iw = (iy1 >= 0) && (ix1a >= 0) ? grid1.ij2gidx (ix1a, iy1) : -1;
-        ie = (iy1 >= 0) && (ix1b >= 0) ? grid1.ij2gidx (ix1b, iy1) : -1;
+        iw = (iy1 >= 0) && (ix1a >= 0) ? grid1.index (ix1a, iy1) : -1;
+        ie = (iy1 >= 0) && (ix1b >= 0) ? grid1.index (ix1b, iy1) : -1;
       };
 
       x1iy1_to_iwie (xy1.x (), iy1a, 
@@ -224,7 +225,8 @@ interpolation4impl::interpolation4impl
   ompiota (std::begin (iord_by_glo1), std::end (iord_by_glo1), 0);
 
   ompsort (std::begin (iord_by_glo1), std::end (iord_by_glo1), 
-           [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; });
+           [&iglo1all] (int a, int b) { return iglo1all[a] < iglo1all[b]; }, llopenmp);
+   
 
   // Reverse indices array
 
@@ -282,7 +284,7 @@ interpolation4impl::interpolation4impl
               if (prcglo1[a].iprc == prcglo1[b].iprc)
                 return prcglo1[a].iglo < prcglo1[b].iglo; 
               return prcglo1[a].iprc < prcglo1[b].iprc; 
-           });
+           }, llopenmp);
 
   irev_by_prc1glo1 = reverse (iord_by_prc1glo1);
 
@@ -323,7 +325,10 @@ interpolation4impl::interpolation4impl
 
   // Exchange send/recv counts
 
-  comm.allToAll (irecvcnt, isendcnt);
+  if (llmpi)
+    comm.allToAll (irecvcnt, isendcnt);
+  else
+    isendcnt[0] = irecvcnt[0];
 
   int insend = std::count_if (std::begin (isendcnt), std::end (isendcnt), [] (int k) { return k > 0; });
   int inrecv = std::count_if (std::begin (irecvcnt), std::end (irecvcnt), [] (int k) { return k > 0; });
@@ -371,25 +376,38 @@ interpolation4impl::interpolation4impl
 
   // Exchange global indices of grid #1
 
+
   std::vector<eckit::mpi::Request> reqsend (insend), reqrecv (inrecv);
 
-  // Send indices we need to send values for
-  for (int i = 0; i < insend; i++)
-    reqsend[i] = comm.iReceive (&yl_send[i].iglo[0],
-                                yl_send[i].iglo.size (), 
-                                yl_send[i].iprc, 101);
+  if (llmpi)
+    {
+      // Send indices we need to send values for
+      for (int i = 0; i < insend; i++)
+        reqsend[i] = comm.iReceive (&yl_send[i].iglo[0],
+                                    yl_send[i].iglo.size (), 
+                                    yl_send[i].iprc, 101);
 
-  comm.barrier ();
+      comm.barrier ();
 
-  // Receive indices we shall send values for
+      // Receive indices we shall send values for
 
-  for (int i = 0; i < inrecv; i++)
-    reqrecv[i] = comm.iSend (&iglobal1[yl_recv[i].ioff], 
-                             yl_recv[i].icnt, 
-                             yl_recv[i].iprc, 101);
+      for (int i = 0; i < inrecv; i++)
+        reqrecv[i] = comm.iSend (&iglobal1[yl_recv[i].ioff], 
+                                 yl_recv[i].icnt, 
+                                 yl_recv[i].iprc, 101);
 
-  for (int i = 0; i < insend; i++)
-    comm.wait (reqsend[i]);
+      for (int i = 0; i < insend; i++)
+        comm.wait (reqsend[i]);
+
+      for (int i = 0; i < inrecv; i++)
+        comm.wait (reqrecv[i]);
+
+    }
+  else
+    {
+      for (int j = 0; j < yl_send[0].iglo.size (); j++)
+        yl_send[0].iglo[j] = iglobal1[yl_recv[0].ioff+j];
+    }
 
   // We have received the global indices we should transmit; decode them into
   // lat/lon indices, then into local indices
@@ -411,7 +429,7 @@ interpolation4impl::interpolation4impl
             {
               atlas::idx_t ij[2];
 
-              grid1.gidx2ij (jglo, ij);
+              grid1.index2ij (jglo, ij[0], ij[1]);
               jloc = fs1.index (ij[0], ij[1]);
 
               // Check this (i, j) is held by current MPI task
@@ -425,11 +443,7 @@ interpolation4impl::interpolation4impl
       yl_send[i].iglo.clear ();
     }
 
-  // Wait for MPI requests to complete
   
-  for (int i = 0; i < inrecv; i++)
-    comm.wait (reqrecv[i]);
-
   if (inrecv > 0)
     isize_recv = yl_recv[0].ioff;
   for (const auto & r : yl_recv)
@@ -461,6 +475,7 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
 
   auto & comm = atlas::mpi::comm ();
   int irank = comm.rank (), nproc = comm.size ();
+  const bool llmpi = nproc > 1;
 
   // Requests for send/recv
 
@@ -483,14 +498,17 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
   
   std::fill (std::begin (zbufr), std::begin (zbufr) + iskip, 0);
 
-  // Post receives
+  if (llmpi)
+    {
+      // Post receives
 
-  for (int i = 0; i < yl_recv.size (); i++)
-    reqrecv[i] = comm.iReceive (&zbufr[infld*yl_recv[i].ioff], 
-                                yl_recv[i].icnt * infld,
-                                yl_recv[i].iprc, 101);
+      for (int i = 0; i < yl_recv.size (); i++)
+        reqrecv[i] = comm.iReceive (&zbufr[infld*yl_recv[i].ioff], 
+                                    yl_recv[i].icnt * infld,
+                                    yl_recv[i].iprc, 101);
 
-  comm.barrier ();
+      comm.barrier ();
+    }
 
   // Send data
 
@@ -502,17 +520,25 @@ interpolation4impl::shuffle (const atlas::FieldSet & pgp1) const
       for (int jfld = 0; jfld < infld; jfld++)
         {
           auto v = atlas::array::make_view<T,1> (pgp1[jfld]);
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
           for (int k = 0; k < icnt; k++)
             {
 if (k < 0) abort ();
 if (k >= pgp1[jfld].size ()) abort ();
-            zbufs[infld*ioff+jfld*icnt+k] = v (yl_send[i].iloc[k]);
+              zbufs[infld*ioff+jfld*icnt+k] = v (yl_send[i].iloc[k]);
             }
         }
-      reqsend[i] = comm.iSend (&zbufs[infld*ioff], icnt * infld,
-                               yl_send[i].iprc, 101);
+
+      if (llmpi)
+        reqsend[i] = comm.iSend (&zbufs[infld*ioff], icnt * infld,
+                                 yl_send[i].iprc, 101);
+      else
+        {
+          for (int j = 0; j < infld * icnt; j++)
+            zbufr[infld*yl_recv[0].ioff+j] = zbufs[j];
+        }
     }
+
 
   // Create fields in pgp2
   
@@ -526,13 +552,14 @@ if (k >= pgp1[jfld].size ()) abort ();
       f2e.metadata () = f1.metadata ();
       pgp2e.add (f2e);
       auto v = atlas::array::make_view<T,1> (f2e);
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
       for (int k = 0; k < yl_recv[0].ioff; k++)
         v (k) = 0;
     }
 
-  for (auto & req : reqrecv)
-    comm.wait (req);
+  if (llmpi)
+    for (auto & req : reqrecv)
+      comm.wait (req);
 
   // Shuffle values in pgp2e
   for (int i = 0; i < yl_recv.size (); i++)
@@ -543,14 +570,15 @@ if (k >= pgp1[jfld].size ()) abort ();
       for (int jfld = 0; jfld < infld; jfld++)
         {
           auto v = atlas::array::make_view<T,1> (pgp2e[jfld]);
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
           for (int k = 0; k < icnt; k++)
             v (ioff + k) = zbufr[infld * ioff + jfld * icnt + k];
         }
     }
 
-  for (auto & req : reqsend)
-    comm.wait (req);
+  if (llmpi)
+    for (auto & req : reqsend)
+      comm.wait (req);
 
   return pgp2e;
   }
@@ -565,6 +593,8 @@ interpolation4impl::create_weights ()
   auto xyz1 = getXYZ (fs1);
   auto xyz2 = getXYZ (fs2);
 
+  auto glob2 = fs2.global_index ();
+
   atlas::FieldSet xyz2e = shuffle<double> (xyz1);
 
   weights4.values.resize (4 * size2);
@@ -572,20 +602,45 @@ interpolation4impl::create_weights ()
   auto x2  = atlas::array::make_view<double,1> (xyz2 [0]);
   auto y2  = atlas::array::make_view<double,1> (xyz2 [1]);
   auto z2  = atlas::array::make_view<double,1> (xyz2 [2]);
+  auto g2  = atlas::array::make_view<atlas::gidx_t,1> (glob2);
   
   auto x2e = atlas::array::make_view<double,1> (xyz2e[0]);
   auto y2e = atlas::array::make_view<double,1> (xyz2e[1]);
   auto z2e = atlas::array::make_view<double,1> (xyz2e[2]);
   
   ATLAS_TRACE_SCOPE ("Compute weights");
-#pragma omp parallel for
+#pragma omp parallel for if (llopenmp)
   for (int jloc2 = 0; jloc2 < size2; jloc2++) 
     {
+      atlas::idx_t i2, j2;
+
+      grid2.index2ij (g2 (jloc2)-1, i2, j2);
+       
+      // Assess target local resolution
+      const double mm = ([&] ()
+      {
+        auto ij2xyz = [&] (const int i, const int j)
+        {
+          double lonlat[2]; grid2.lonlat (i, j, lonlat);
+          double lon = lonlat[0] * deg2rad, lat = lonlat[1] * deg2rad;
+          double coslon = std::cos (lon), sinlon = std::sin (lon);
+          double coslat = std::cos (lat), sinlat = std::sin (lat);
+          return atlas::Point3 (coslon * coslat, sinlon * coslat, sinlat);
+        };
+
+        int iA = i2, jA = j2, iB = i2 > 0 ? i2 - 1 : i2 + 1, jB = j2;
+        auto PA = ij2xyz (iA, jA);
+        auto PB = ij2xyz (iB, jB);
+        return std::acos (atlas::Point3::dot (PA, PB));
+      }) ();
+
+
+      const int c[4] = {ISW, ISE, INW, INE};
+
+#ifdef UNDEF
       // The weight is the inverse of the distance in radian between the target point 
       // and the points used for interpolation
 
-
-      int c[4] = {ISW, ISE, INW, INE};
       for (int j = 0; j < 4; j++)
         {
           int jj = c[j];
@@ -597,8 +652,97 @@ interpolation4impl::create_weights ()
             // Prevent division by zero
             weights4.values[4*(jloc2+1)+jj-1] = 1.0 / std::max (1.0E-10, 
               acos (x2[jloc2] * x2e[jind1] + y2[jloc2] * y2e[jind1] + z2[jloc2] * z2e[jind1])); // Scalar product
-
         }
+#else
+
+      const double zmax = std::numeric_limits<double>::max ();
+
+      const int next[4] = {1, 3, 0, 2}, prev[4] = {2, 0, 3, 1};
+
+      double distM[4], dist[4][4];
+      bool skip[4];
+      
+      for (int j = 0; j < 4; j++)
+        distM[j] = zmax;
+
+      for (int i = 0; i < 4; i++)
+      for (int j = 0; j < 4; j++)
+        dist[i][j] = i == j ? 0. : zmax;
+      
+      for (int j = 0; j < 4; j++)
+        {
+          int jj = c[j];
+          int jind1 = isort[4*(jloc2+1)+jj-1];
+          skip[j] = jind1 < iskip;
+        }
+
+      for (int j = 0; j < 4; j++)
+        {
+          if (skip[j])
+            continue;           
+
+          int jj = c[j];
+          int jind1 = isort[4*(jloc2+1)+jj-1];
+
+          distM[j] = acos (x2[jloc2] * x2e[jind1] + y2[jloc2] * y2e[jind1] + z2[jloc2] * z2e[jind1]); // Scalar product
+
+          for (int i = 0; i < j; i++)
+            {
+              if (skip[i])
+                continue;
+
+              int ii = c[i];
+              int iind1 = isort[4*(jloc2+1)+ii-1];
+
+              dist[j][i] = dist[i][j] = acos (x2e[iind1] * x2e[jind1] + y2e[iind1] * y2e[jind1] + z2e[iind1] * z2e[jind1]); 
+            }
+        }
+
+      const double dref = mm / 1000.;
+
+      bool near[4] = {false, false, false, false};
+
+      for (int j = 0; j < 4; j++)
+        {
+          int jn = next[j];
+          near[j] = (distM[j] + distM[jn] - dist[j][jn]) < dref;
+        }
+
+      for (int j = 0; j < 4; j++)
+        {
+          int jj = c[j];
+
+          weights4.values[4*(jloc2+1)+jj-1] = 0;
+
+          if (skip[j])
+            continue;
+
+          int jp = prev[j], jn = next[j];
+
+          if (near[j])
+            {
+              for (int i = 0; i < 4; i++)
+                weights4.values[4*(jloc2+1)+c[i]-1] = 0;
+              int jjn = c[jn];
+
+              double a = distM[j] / dist[j][jn];
+
+              weights4.values[4*(jloc2+1)+jj -1] = 1. - a;
+              weights4.values[4*(jloc2+1)+jjn-1] = a;
+          
+              break;
+            }
+          else
+            {
+              double w = 1.;
+              if (! skip[jp]) w = w * (distM[j] + distM[jp] - dist[j][jp]);
+              if (! skip[jn]) w = w * (distM[j] + distM[jn] - dist[j][jn]);
+              weights4.values[4*(jloc2+1)+jj-1] = 1.0 / std::max (1.0E-30, w);
+            }
+        }
+      
+
+#endif
 
       // Rebalance weights so that their sum be 1
       
@@ -620,9 +764,6 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
   {
 
   atlas::FieldSet pgp2;
-
-  auto & comm = atlas::mpi::comm ();
-  int irank = comm.rank (), nproc = comm.size ();
 
   int infld = pgp1.size ();
 
@@ -647,14 +788,14 @@ interpolation4impl::interpolate (const atlas::FieldSet & pgp1) const
       bool llundef = pgp1[jfld].metadata ().get ("undef", zundef);
       auto v2  = atlas::array::make_view<T,1> (pgp2 [jfld]);
       auto v2e = atlas::array::make_view<T,1> (pgp2e[jfld]);
-#pragma omp parallel for
+
+#pragma omp parallel for if (llopenmp)
       for (int jloc2 = 0; jloc2 < size2; jloc2++)
         {
           int kisw = 4*(jloc2+1)+ISW-1, jisw = isort[kisw];
           int kise = 4*(jloc2+1)+ISE-1, jise = isort[kise];
           int kinw = 4*(jloc2+1)+INW-1, jinw = isort[kinw];
           int kine = 4*(jloc2+1)+INE-1, jine = isort[kine];
-
           if (llundef)
             {
               T vs = static_cast<T> (0);
@@ -689,11 +830,13 @@ DEF (double);
 
 interpolation4impl * interpolation4__new 
   (const atlas::grid::DistributionImpl * dist1, const atlas::functionspace::detail::StructuredColumns * fs1,
-   const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2)
+   const atlas::grid::DistributionImpl * dist2, const atlas::functionspace::detail::StructuredColumns * fs2,
+   const int ldopenmp, const int weights_type)
 {
   interpolation4impl * int4 = new interpolation4impl
   (atlas::grid::Distribution (dist1), atlas::functionspace::StructuredColumns (fs1), 
-   atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2));
+   atlas::grid::Distribution (dist2), atlas::functionspace::StructuredColumns (fs2),
+   ldopenmp > 0, static_cast<interpolation4impl::weights_t> (weights_type));
   return int4;
 }
 

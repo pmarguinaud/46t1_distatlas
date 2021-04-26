@@ -15,12 +15,14 @@ public:
   {
     OPT_AVG=0,
     OPT_MIN=1,
-    OPT_MAX=2
+    OPT_MAX=2,
+    OPT_SUM=3
   };
 
   interpolationAimpl () = default;
   interpolationAimpl (const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
-                      const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &);
+                      const atlas::grid::Distribution &, const atlas::functionspace::StructuredColumns &,
+                      const bool ldopenmp);
 
   template <typename T>
   atlas::FieldSet shuffle (const atlas::FieldSet &) const;
@@ -58,6 +60,7 @@ private:
   size_t isize_send = 0;
   size_t isize_miss = 0;
   bool verbose = false;
+  bool llopenmp = true;  // Use OpenMP when possible
 
   struct recv_t
   {
@@ -115,8 +118,9 @@ public:
 
   interpolationA 
   (const atlas::grid::Distribution & dist1, const atlas::functionspace::StructuredColumns & fs1,
-   const atlas::grid::Distribution & dist2, const atlas::functionspace::StructuredColumns & fs2)
-   : Handle::Handle (new interpolationAimpl (dist1, fs1, dist2, fs2))
+   const atlas::grid::Distribution & dist2, const atlas::functionspace::StructuredColumns & fs2,
+   const bool ldopenmp)
+   : Handle::Handle (new interpolationAimpl (dist1, fs1, dist2, fs2, ldopenmp))
   {
   }
 
@@ -152,7 +156,8 @@ extern "C"
 {
 interpolationAimpl * interpolationA__new 
   (const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
-   const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *);
+   const atlas::grid::DistributionImpl *, const atlas::functionspace::detail::StructuredColumns *,
+   const int);
 atlas::field::FieldSetImpl * interpolationA__interpolate (interpolationAimpl *, atlas::field::FieldSetImpl *, const int);
 atlas::field::FieldSetImpl * interpolationA__shuffle (interpolationAimpl *, atlas::field::FieldSetImpl *);
 int interpolationA__getlen (const interpolationAimpl *);

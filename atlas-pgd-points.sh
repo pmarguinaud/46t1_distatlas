@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -N2
+#SBATCH -N1
 #SBATCH --exclusive
 
 set -x
@@ -7,6 +7,7 @@ set -x
 ulimit -s unlimited
 export DR_HOOK_NOT_MPI=1 
 export DR_HOOK=0 
+export OMP_STACK_SIZE=2G
 
 NN=$SLURM_NNODES
 
@@ -24,41 +25,6 @@ PACK=/home/gmap/mrpm/marguina/pack/46t1_distatlas.01.I185274INTELMPI185274.x
 ls -l
 
 
-#cp -f $PACK/data/fort.4.t49  fort.4
-#cp -f $PACK/data/fort.4.t149 fort.4
-#cp -f $PACK/data/fort.4.t149c2.2 fort.4
-#cp -f $PACK/data/fort.4.t32c2.4 fort.4
-#cp -f $PACK/data/fort.4.t1798 fort.4
-
-
-if [ 0 -eq 1 ]
-then
-  cp -f $PACK/data/fort.4.3x3ll fort.4
-  RED=.10
-elif [ 0 -eq 1 ]
-then
-  cp -f $PACK/data/fort.4.100x50ll fort.4
-  RED=.10
-elif [ 0 -eq 1 ]
-then
-  cp -f $PACK/data/fort.4.180x91 fort.4
-  RED=.20
-elif [ 0 -eq 1 ]
-then
-  cp -f $PACK/data/fort.4.64x64 fort.4
-  RED=.20
-elif [ 0 -eq 1 ]
-then
-  cp -f $PACK/data/fort.4.t149 fort.4
-  RED=.20
-else
-  cp -f $PACK/data/fort.4.t1798c2.2 fort.4
-# cp -f $PACK/data/fort.4.t1798     fort.4
-# cp -f $PACK/data/fort.4.t4000     fort.4
-# cp -f $PACK/data/fort.4.t8000     fort.4
-  RED=""
-fi
-
 ln -sf /scratch/work/marguina/SFX_databases$RED/ecoclimapI_covers_param.bin ecoclimapI_covers_param.bin
 ln -sf /scratch/work/marguina/SFX_databases$RED/orography.dir               SFX.ZS.dir
 ln -sf /scratch/work/marguina/SFX_databases$RED/orography.hdr               SFX.ZS.hdr
@@ -72,7 +38,10 @@ ln -sf /scratch/work/marguina/SFX_databases$RED/CLAY_HWSD_MOY.hdr           SFX.
 
 rm PGD2*
 
-if [ 1 -eq 1 ]
+export ECKIT_MPI_INIT_THREAD=MPI_THREAD_MULTIPLE
+
+
+if [ 0 -eq 1 ]
 then
 
 #xport ATLAS_TRACE=1
@@ -82,28 +51,42 @@ then
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD
-elif [ 0 -eq 1 ]
+  --wrap --wrap-stdeo -nn $NN -nnp 16 -openmp 8 -- $PACK/bin/ATLAS_PGD_POINTS
+elif [ 1 -eq 1 ]
 then
+
+#export MPIAUTOCONFIG=mpiauto.XGDB1.conf
+
 ~marguina/SAVE/mpiauto/mpiauto \
   --prefix-mpirun '/usr/bin/time -f "time=%es"' \
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
-  --wrap --wrap-stdeo -nn $NN -nnp 2 -openmp 10 -- $PACK/bin/ATLAS_PGD
+  --wrap --wrap-stdeo -nn $NN -nnp 2 -openmp 10 -- $PACK/bin/ATLAS_PGD_POINTS
 else
-#MP_NUM_THREADS=1 gdb --ex=run --args $PACK/bin/ATLAS_PGD
-OMP_NUM_THREADS=1 $PACK/bin/ATLAS_PGD
+
+OMP_NUM_THREADS=10 gdb --ex=run --args $PACK/bin/ATLAS_PGD_POINTS
+
+exit
+
+rm log.*.txt.? log.*.txt
+
+OMP_NUM_THREADS=1 $PACK/bin/ATLAS_PGD_POINTS > stdeo.0.1 2>&1
+
+for l in log.*.txt
+do
+ mv $l $l.1
+done
+
+OMP_NUM_THREADS=2 $PACK/bin/ATLAS_PGD_POINTS > stdeo.0.2 2>&1
+
+for l in log.*.txt
+do
+ mv $l $l.2
+done
+
+#MP_NUM_THREADS=2 gdb --ex=run --args $PACK/bin/ATLAS_PGD_POINTS
+#MP_NUM_THREADS=1 $PACK/bin/ATLAS_PGD_POINTS
 fi
 
 
 ls -lrt 
-
-lfitools=$PACK/bin/lfitools
-
-for p in PGD2
-do
-$lfitools lfi_alt_index --lfi-file-in $p.* --lfi-file-out $p
-$lfitools lfi_alt_pack --lfi-file-in $p --lfi-file-out $p.pack
-done
-
-
 

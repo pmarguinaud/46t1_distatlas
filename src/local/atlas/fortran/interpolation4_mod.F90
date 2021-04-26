@@ -2,6 +2,7 @@
 
 module interpolation4_mod
 
+use iso_c_binding, only : c_int
 use fckit_owned_object_module, only : fckit_owned_object
 use atlas_functionspace_StructuredColumns_module
 use atlas_fieldset_module, only : atlas_FieldSet
@@ -28,13 +29,15 @@ end interface
 
 
 interface
-function interpolation4__new (dist1, fs1, dist2, fs2) bind (C, name="interpolation4__new")
-    use iso_c_binding, only: c_ptr
+function interpolation4__new (dist1, fs1, dist2, fs2, ldopenmp, weights_type) &
+  & bind (C, name="interpolation4__new")
+    use iso_c_binding, only: c_ptr, c_int
     type (c_ptr) :: interpolation4__new
     type (c_ptr), value :: dist1
     type (c_ptr), value :: fs1
     type (c_ptr), value :: dist2
     type (c_ptr), value :: fs2
+    integer (c_int), value :: ldopenmp, weights_type
 end function
 
 function interpolation4__interpolate (this, pgp1) bind (C, name="interpolation4__interpolate")
@@ -47,14 +50,26 @@ end interface
 
 contains
 
-function interpolation4__ctor (dist1, fs1, dist2, fs2) result (this)
+function interpolation4__ctor (dist1, fs1, dist2, fs2, ldopenmp, kwt) result (this)
   type (interpolation4) :: this
   type (atlas_GridDistribution),                intent(in) :: dist1
   type (atlas_functionspace_StructuredColumns), intent(in) :: fs1
   type (atlas_GridDistribution),                intent(in) :: dist2
   type (atlas_functionspace_StructuredColumns), intent(in) :: fs2
+  logical, optional,                            intent(in) :: ldopenmp
+  integer, optional,                            intent(in) :: kwt
+  integer (c_int) :: llopenmp, iwt
+  llopenmp = 1
+  if (present (ldopenmp)) then
+    if (.not. ldopenmp) llopenmp = 0
+  endif
+  iwt = 0
+  if (present (kwt)) then
+    iwt = kwt
+  endif
   call this%reset_c_ptr (interpolation4__new (dist1%CPTR_PGIBUG_A, fs1%CPTR_PGIBUG_A, &
-                       &                      dist2%CPTR_PGIBUG_A, fs2%CPTR_PGIBUG_A))
+                       &                      dist2%CPTR_PGIBUG_A, fs2%CPTR_PGIBUG_A, &
+                       &                      llopenmp, iwt))
   call this%return ()
 end function
 

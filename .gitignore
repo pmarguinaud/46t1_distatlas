@@ -47,3 +47,13 @@ PRE1.*
 PRE2.*
 PGD1.*
 PGD2.*
+.mpiauto*
+*_GL
+Const.Clim*
+N108*
+isba.0001*
+lai_GL.*
+veg_GL.*
+abc_coef.m*
+aero_GL.m*
+

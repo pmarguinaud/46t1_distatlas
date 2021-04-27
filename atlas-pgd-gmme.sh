@@ -80,8 +80,9 @@ then
   --prefix-command '/usr/bin/time -f "mem=%Mkb"' \
   --wrap --wrap-stdeo -nn $NN -nnp 2 -openmp 10 -- $PACK/pgd
 else
-#MP_NUM_THREADS=1 gdb --ex=run --args $PACK/bin/ATLAS_PGD
-OMP_NUM_THREADS=1 $PACK/pgd
+OMP_NUM_THREADS=1 /home/ext/bull/trivinoc/tools/valgrind/3.16.1/bin/valgrind $PACK/pgd
+#MP_NUM_THREADS=1 gdb --ex=run --args $PACK/pgd
+#MP_NUM_THREADS=1 $PACK/pgd
 fi
 
 

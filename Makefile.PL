@@ -5,8 +5,13 @@ use FileHandle;
 use File::Basename;
 use File::Spec;
 use Data::Dumper;
-use List::Util qw (uniq);
 use File::Find;
+
+sub uniq
+{
+  my %seen;
+  return grep { ! ($seen{$_}++) } @_;
+}
 
 my %code;
 
@@ -44,7 +49,7 @@ sub inc
 }
 
 my @src = qw (
-src/local/atlas/programs/atlas-pgd-demo.F90
+src/local/atlas/programs/atlas-pgd-gmme.F90
 src/local/atlas/programs/atlas-helper.F90
 src/local/atlas/interpolation/interpolation4.cc
 src/local/atlas/interpolation/interpolationA.cc
@@ -58,7 +63,7 @@ src/local/atlas/surfex/atlas-prep-impl.F90
 src/local/atlas/surfex/atlas-pgd-impl.F90
 src/local/atlas/surfex/readcovers_mod.F90
 src/local/atlas/surfex/atlas-compute-covers.F90
-src/local/atlas/io/atlas-fmt-null.F90
+src/local/atlas/io/atlas-fmt-netcdf.F90
 src/local/atlas/io/atlas-io-gathscat.F90
 src/local/atlas/io/atlas-io-dh.F90
 src/local/atlas/io/atlas-fmt.F90

@@ -6,7 +6,6 @@ ulimit -s unlimited
 
 ls -l
 
-REPO=$HOME/46t1_distatlas
 RED=.20
 
 data=$HOME
@@ -29,6 +28,6 @@ ln -sf $data/SFX_databases$RED/CLAY_HWSD_MOY.hdr           SFX.CLAY.hdr
 
 rm -f PGD2*
 
-OMP_NUM_THREADS=1 mpirun -np 4 $REPO/pgd
+OMP_NUM_THREADS=1 mpirun -np 4 ./pgd
 
 

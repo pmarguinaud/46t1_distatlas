@@ -57,3 +57,4 @@ veg_GL.*
 abc_coef.m*
 aero_GL.m*
 pgd
+.gdb_history

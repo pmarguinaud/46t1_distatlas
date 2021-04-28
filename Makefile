@@ -3,8 +3,8 @@ include Makefile.inc
 
 all: pgd
 
-src/local/atlas/programs/atlas-pgd-gmme.o: src/local/atlas/programs/atlas-pgd-gmme.F90 src/local/ifsaux/module/parkind1.o src/local/atlas/io/atlas-io-gathscat.o src/local/atlas/io/atlas-io-dh.o src/local/atlas/io/atlas-fmt-netcdf.o src/local/atlas/programs/atlas-helper.o src/local/ifsaux/module/xrd_getoptions.o
-	cd src/local/atlas/programs && $(F90) -c -I../include -I../../ifsaux/module -I../io -I../io -I../io -I. -I../../ifsaux/module -o atlas-pgd-gmme.o atlas-pgd-gmme.F90
+src/local/atlas/programs/atlas-pgd-gmme.o: src/local/atlas/programs/atlas-pgd-gmme.F90 src/local/ifsaux/module/parkind1.o src/local/atlas/io/atlas-io-gathscat.o src/local/atlas/io/atlas-io-dh.o src/local/atlas/io/atlas-fmt-netcdf.o
+	cd src/local/atlas/programs && $(F90) -c -I../include -I../../ifsaux/module -I../io -I../io -I../io -o atlas-pgd-gmme.o atlas-pgd-gmme.F90
 
 src/local/atlas/programs/atlas-helper.o: src/local/atlas/programs/atlas-helper.F90 src/local/ifsaux/module/parkind1.o
 	cd src/local/atlas/programs && $(F90) -c -I../include -I../../ifsaux/module -o atlas-helper.o atlas-helper.F90

@@ -55,7 +55,7 @@ then
 else
 #MP_NUM_THREADS=1 valgrind $REPO/pgd
 #MP_NUM_THREADS=1 gdb --ex=run --args $REPO/pgd
-OMP_NUM_THREADS=1 $REPO/pgd
+OMP_NUM_THREADS=1 mpirun -np 2 $REPO/pgd
 fi
 
 

@@ -10,7 +10,7 @@ RED=.20
 
 data=$HOME
 
-if [ ! -f "$data/SFX_databases$RED/ecoclimapI_covers_param.bin" ]
+if [ ! -f "$data/SFX_databases$RED/ecoclimapI_covers_param.bin" ]
 then
   echo "Cannot find $data/SFX_databases$RED/ecoclimapI_covers_param.bin"
   exit 1
